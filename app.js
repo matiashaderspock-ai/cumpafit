@@ -82,7 +82,6 @@ const STARTER_EXERCISES = [
   {"id":"dumbbell-wrist-curl","name":"Dumbbell Wrist Curl","nameEs":"Curl de muñecas con mancuernas","group":"Otros","equipment":"Mancuernas · Banco"},
   {"id":"dumbbell-reverse-wrist-curl","name":"Dumbbell Reverse Wrist Curl","nameEs":"Extensión de muñecas con mancuernas","group":"Otros","equipment":"Mancuernas · Banco"}
 ];
-const INITIAL_SESSION_IDS = STARTER_EXERCISES.slice(0, 6).map(ex => ex.id);
 const STARTER_ILLUSTRATIONS = {
   "curl-inclinado": "./assets/curl-inclinado-hd.jpg",
   "triceps-pushdown": "./assets/triceps-pushdown-hd.jpg",
@@ -232,6 +231,7 @@ let db;
 let state;
 let tab = "today";
 let activeDate = todayISO();
+let observedToday = activeDate;
 let expandedId = STARTER_EXERCISES[0].id;
 let catalogFilter = "Todos";
 let catalogSearch = "";
@@ -281,12 +281,24 @@ function persist() {
 }
 function ensureSession(date = activeDate) {
   if (state.sessions[date]) return state.sessions[date];
-  const previousDate = Object.keys(state.sessions).filter(key => key < date).sort().at(-1);
-  const selected = previousDate ? [...state.sessions[previousDate].selected] : [...INITIAL_SESSION_IDS];
-  state.sessions[date] = { date, selected, completed: {}, sets: {} };
-  for (const id of selected) state.sessions[date].sets[id] = [newSetFor(getExercise(id))];
+  state.sessions[date] = { date, selected: [], completed: {}, sets: {} };
   persist();
   return state.sessions[date];
+}
+function syncSessionDay() {
+  if (!state) return false;
+  const today = todayISO();
+  if (today === observedToday) return false;
+  const wasViewingToday = activeDate === observedToday;
+  observedToday = today;
+  // Keep explicitly opened historical dates available for review and correction.
+  if (wasViewingToday) {
+    activeDate = today;
+    expandedId = "";
+    closeOverlay();
+  }
+  render();
+  return wasViewingToday;
 }
 function getExercise(id) { return state.exercises.find(ex => ex.id === id); }
 function newSetFor(ex, previous = {}) {
@@ -925,6 +937,22 @@ document.addEventListener("submit", async event => {
   }
 });
 document.addEventListener("keydown", event => { if (event.key === "Escape") closeOverlay(); });
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") syncSessionDay();
+});
+window.addEventListener("pageshow", syncSessionDay);
+window.addEventListener("focus", syncSessionDay);
+// Also cover an app left open across local midnight. Timers resume after suspension.
+setInterval(syncSessionDay, 1000);
+// Refresh before an interaction can edit yesterday's session after a suspended timer.
+for (const eventType of ["click", "input", "change", "submit"]) {
+  document.addEventListener(eventType, event => {
+    if (syncSessionDay()) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }
+  }, true);
+}
 
 async function init() {
   try {
@@ -936,6 +964,7 @@ async function init() {
     const addedExercises = mergeStarterExercises(state);
     const renamedExercises = migrateExerciseNames(state);
     if (addedExercises || renamedExercises || needsRoutines) await writeState(structuredClone(state));
+    activeDate = observedToday = todayISO();
     render();
     if ("serviceWorker" in navigator && window.isSecureContext) navigator.serviceWorker.register("./sw.js").catch(console.warn);
   } catch (error) {

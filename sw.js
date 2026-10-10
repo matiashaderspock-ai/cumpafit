@@ -1,9 +1,9 @@
-const CACHE = "fit-world-rutinas-v28";
+const CACHE = "fit-world-rutinas-v29";
 const FILES = [
   "./",
   "./index.html",
   "./styles.css?v=27",
-  "./app.js?v=27",
+  "./app.js?v=29",
   "./manifest.webmanifest",
   "./assets/icon.svg",
   "./assets/apple-touch-icon.png",
