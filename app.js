@@ -304,7 +304,20 @@ function getExercise(id) { return state.exercises.find(ex => ex.id === id); }
 function newSetFor(ex, previous = {}) {
   return ex?.group === "Cardio"
     ? { id: uid(), minutes: previous.minutes || "", distanceKm: previous.distanceKm || "", done: false }
-    : { id: uid(), kg: previous.kg || "", reps: previous.reps || "", done: false };
+    : { id: uid(), kg: previous.kg || "", reps: previous.reps || "", done: false, autoDone: false };
+}
+function updateAutoDone(set) {
+  // A deliberate checkbox choice survives later edits and reopening the app.
+  if (set.manualDone === true) return false;
+  const kg = decimalNumber(set.kg);
+  const reps = Number(set.reps);
+  const valid = /^(?:\d+(?:[.,]\d*)?|[.,]\d+)$/.test(String(set.kg ?? "").trim()) &&
+    Number.isFinite(kg) && kg > 0 && /^\d+$/.test(String(set.reps ?? "").trim()) &&
+    Number.isInteger(reps) && reps > 0;
+  const before = set.done;
+  if (valid && !set.done) { set.done = true; set.autoDone = true; }
+  else if (!valid && set.autoDone === true) { set.done = false; set.autoDone = false; }
+  return before !== set.done;
 }
 function decimalNumber(value) {
   const raw = String(value ?? "").trim().replace(",", ".");
@@ -506,6 +519,26 @@ function renderSetFields(ex, set, index) {
     ? [["minutes", "Minutos", set.minutes], ["distanceKm", "Distancia km", set.distanceKm]]
     : [["kg", "Peso kg", set.kg], ["reps", "Repeticiones", set.reps]];
   return fields.map(([field, label, value]) => `<input class="set-input" type="${field === "reps" ? "number" : "text"}" ${field === "reps" ? 'min="0"' : ""} inputmode="${field === "reps" ? "numeric" : "decimal"}" placeholder="—" value="${escapeHtml(value)}" data-set-field="${field}" data-ex="${ex.id}" data-set-id="${set.id}" aria-label="${label} serie ${index + 1} de ${escapeHtml(ex.name)}" />`).join("");
+}
+function refreshSetProgress(input) {
+  // Refresh progress without replacing inputs or interrupting the phone keyboard.
+  const template = document.createElement("template");
+  template.innerHTML = renderToday();
+  $("#view .summary-card").replaceWith(template.content.querySelector(".summary-card"));
+  const card = input.closest(".session-card");
+  const session = ensureSession();
+  const id = input.dataset.ex;
+  const done = isExerciseComplete(session, id);
+  const ex = getExercise(id);
+  const sets = session.sets[id];
+  card.classList.toggle("done", done);
+  const badge = card.querySelector(".complete-button");
+  badge.classList.toggle("done", done);
+  badge.setAttribute("aria-pressed", String(done));
+  badge.setAttribute("aria-label", `${done ? "Marcar pendiente" : "Marcar completado"}: ${ex.name}`);
+  card.querySelector(".expand-button span").textContent = `${sets.filter(set => set.done).length} de ${sets.length} series hechas`;
+  const row = input.closest(".set-row");
+  row.querySelector("[data-set-done]").checked = sets.find(set => set.id === input.dataset.setId).done;
 }
 function renderSessionExercise(ex, session, index) {
   const isOpen = expandedId === ex.id;
@@ -716,7 +749,7 @@ function addToSession(id) {
   const session = ensureSession();
   if (session.selected.includes(id)) return;
   session.selected.push(id);
-  session.sets[id] ||= [newSetFor(getExercise(id))];
+  session.sets[id] ||= Array.from({ length: 3 }, () => newSetFor(getExercise(id)));
   expandedId = id;
   persist();
 }
@@ -869,7 +902,14 @@ document.addEventListener("input", event => {
   const field = event.target.dataset.setField;
   if (!field) return;
   const set = ensureSession().sets[event.target.dataset.ex]?.find(item => item.id === event.target.dataset.setId);
-  if (set) { set[field] = event.target.value; persist(); }
+  if (set) {
+    set[field] = event.target.value;
+    if (getExercise(event.target.dataset.ex)?.group !== "Cardio" && (field === "kg" || field === "reps") && updateAutoDone(set)) {
+      delete ensureSession().completed[event.target.dataset.ex];
+      refreshSetProgress(event.target);
+    }
+    persist();
+  }
 });
 document.addEventListener("change", event => {
   if (event.target.id === "history-month") {
@@ -896,6 +936,8 @@ document.addEventListener("change", event => {
     if (event.target.checked && cardio && (!Number.isFinite(decimalNumber(set.minutes)) || decimalNumber(set.minutes) <= 0 || !Number.isFinite(decimalNumber(set.distanceKm)) || decimalNumber(set.distanceKm) < 0)) { event.target.checked = false; showToast("Anota los minutos primero"); return; }
     if (event.target.checked && !cardio && (!Number.isInteger(Number(set.reps)) || Number(set.reps) <= 0)) { event.target.checked = false; showToast("Anota las repeticiones primero"); return; }
     set.done = event.target.checked;
+    set.autoDone = false;
+    set.manualDone = true;
     delete ensureSession().completed[event.target.dataset.ex];
     persist(); render();
   }
