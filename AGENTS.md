@@ -1,12 +1,12 @@
-# Fit World shared development instructions
+# Cumpafit shared development instructions
 
 These instructions apply to Codex, ChatGPT Work, Grok Bot, and other contributors working on this repository.
 
 ## Source of truth and delivery
 
-- The canonical application repository is https://github.com/matiashaderspock-ai/fit-world.
-- Production is https://matiashaderspock-ai.github.io/fit-world/. The existing GitHub Pages build and deployment publishes the root files from `main`.
-- The user has installed this PWA on their iPhone Home Screen. Keep its production address, manifest start URL/scope, and service-worker scope stable so the existing installation continues receiving updates and retains its data.
+- The canonical application repository is https://github.com/matiashaderspock-ai/cumpafit.
+- Production is https://matiashaderspock-ai.github.io/cumpafit/. The existing GitHub Pages build and deployment publishes the root files from `main`.
+- The user installs this PWA on their iPhone Home Screen. Keep the Cumpafit production address and relative manifest start URL/scope (`./`) stable for future updates. The rename requires a new installation and JSON backup import; IndexedDB is `cumpafit`, version 1. Preserve compatibility with all version-1 JSON backups.
 - Every completed application change must be committed and pushed to this repository. Integrate release changes into `main` through the permitted repository workflow, then verify the Pages deployment and live files. A local edit or an unmerged branch is not a delivered iPhone update.
 - Report the commit, validation results, deployment status, and any remaining device check. Do not claim an iPhone check was performed from a desktop browser.
 

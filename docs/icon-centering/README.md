@@ -44,11 +44,13 @@ available to Node; it adds no browser/runtime dependency or build requirement.
 
 ## iPhone update
 
-iOS caches the Home Screen icon. After this PR is merged and GitHub Pages has
+iOS caches the Home Screen icon. After the icon-centering PR is merged and GitHub Pages has
 deployed, export a JSON backup from the app first. Then remove the app from the
 Home Screen and add it again from Safari using the same production address.
 Restore the backup if any local data is missing. URL versioning alone may not
 refresh an already installed Home Screen icon. No on-device check was performed.
 
-Production URL, manifest start URL/scope, service-worker scope, and IndexedDB
-are unchanged. Cache v31 and versioned icon/manifest URLs ship together.
+At the time of the icon-centering release, the production URL, manifest start
+URL/scope, service-worker scope, and IndexedDB were unchanged. That release
+shipped cache v31 and versioned icon/manifest URLs together. For the current
+installation instructions, see [Cumpafit on iPhone](../iphone-installation.md).
