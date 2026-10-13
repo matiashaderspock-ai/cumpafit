@@ -168,7 +168,7 @@ const STARTER_ILLUSTRATIONS = {
 };
 const GROUPS = ["Bíceps", "Tríceps", "Pecho", "Espalda", "Hombros", "Cardio", "Abs", "Piernas", "Glúteos", "Core", "Otros"];
 
-const DB_NAME = "fit-world-rutinas";
+const DB_NAME = "cumpafit";
 const DB_VERSION = 1;
 const STORE = "data";
 const $ = selector => document.querySelector(selector);
@@ -785,7 +785,7 @@ async function exportBackup() {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `fit-world-rutinas-${todayISO()}.json`;
+  link.download = `cumpafit-${todayISO()}.json`;
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
   closeOverlay();

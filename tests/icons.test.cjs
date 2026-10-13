@@ -76,12 +76,12 @@ test('SVG retains its design and moves only the glyph up six units', () => {
 test('versioned icon and manifest URLs match the offline cache', () => {
   const html = read('index.html').toString(), sw = read('sw.js').toString();
   const manifest = JSON.parse(read('manifest.webmanifest'));
-  assert.match(sw, /fit-world-rutinas-v31/);
+  assert.match(sw, /cumpafit-v32/);
   for (const icon of manifest.icons) {
-    assert.ok(icon.src.endsWith('?v=31'));
+    assert.ok(icon.src.endsWith('?v=32'));
     assert.ok(sw.includes(`"${icon.src}"`));
   }
-  for (const url of ['./assets/apple-touch-icon.png?v=31', './assets/icon.svg?v=31', './manifest.webmanifest?v=31']) {
+  for (const url of ['./assets/apple-touch-icon.png?v=32', './assets/icon.svg?v=32', './manifest.webmanifest?v=32']) {
     assert.ok(html.includes(`href="${url}"`)); assert.ok(sw.includes(`"${url}"`));
   }
 });

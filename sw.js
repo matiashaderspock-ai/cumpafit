@@ -1,14 +1,14 @@
-const CACHE = "fit-world-rutinas-v31";
+const CACHE = "cumpafit-v32";
 const FILES = [
   "./",
   "./index.html",
-  "./styles.css?v=27",
-  "./app.js?v=30",
-  "./manifest.webmanifest?v=31",
-  "./assets/icon.svg?v=31",
-  "./assets/apple-touch-icon.png?v=31",
-  "./assets/icon-192.png?v=31",
-  "./assets/icon-512.png?v=31",
+  "./styles.css?v=32",
+  "./app.js?v=32",
+  "./manifest.webmanifest?v=32",
+  "./assets/icon.svg?v=32",
+  "./assets/apple-touch-icon.png?v=32",
+  "./assets/icon-192.png?v=32",
+  "./assets/icon-512.png?v=32",
   "./assets/ejercicios-referencia.png",
   "./assets/curl-inclinado-hd.jpg",
   "./assets/triceps-pushdown-hd.jpg",
