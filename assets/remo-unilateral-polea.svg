@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 420" role="img" aria-labelledby="title desc">
+<title id="title">Remo unilateral en polea baja</title><desc id="desc">Dos posiciones del remo unilateral sentado en polea: brazo extendido y codo recogido junto al torso.</desc>
+<defs><linearGradient id="bg" x2="0" y2="1"><stop stop-color="#f8fbfd"/><stop offset="1" stop-color="#e9f0f5"/></linearGradient></defs>
+<rect width="560" height="420" rx="18" fill="url(#bg)"/><path d="M280 20V365" stroke="#cbd7e2" stroke-width="2" stroke-dasharray="5 8"/>
+<g stroke-linecap="round" stroke-linejoin="round">
+<g transform="translate(4)">
+<rect x="24" y="54" width="37" height="279" rx="6" fill="#5b6d79"/><rect x="32" y="80" width="21" height="215" rx="3" fill="#253541"/>
+<circle cx="44" cy="265" r="14" fill="#9ba9b2"/><path d="M44 265L103 202" stroke="#929da7" stroke-width="4"/>
+<path d="M92 302H252" stroke="#677e8d" stroke-width="11"/><path d="M152 302L133 343M200 302L215 343" stroke="#657682" stroke-width="9"/>
+<path d="M179 182L213 205L209 261" stroke="#263440" stroke-width="36" fill="none"/>
+<path d="M206 256L169 292L117 291" stroke="#303e49" stroke-width="22" fill="none"/>
+<path d="M204 258L244 289" stroke="#303e49" stroke-width="20" fill="none"/>
+<path d="M181 176L181 146" stroke="#e5ad86" stroke-width="19"/><circle cx="182" cy="127" r="22" fill="#e5ad86" stroke="none"/><path d="M164 113Q180 96 197 112" stroke="#26313d" stroke-width="13" fill="none"/>
+<path d="M178 204L119 213L101 203" stroke="#d7a07a" stroke-width="18" fill="none"/>
+<path d="M101 202L92 198" stroke="#273c4c" stroke-width="13"/><path d="M106 183V216" stroke="#293a4a" stroke-width="6"/>
+<path d="M115 292H98M246 295H264" stroke="#1e2e3b" stroke-width="16"/>
+</g>
+<g transform="translate(284)">
+<rect x="24" y="54" width="37" height="279" rx="6" fill="#5b6d79"/><rect x="32" y="80" width="21" height="215" rx="3" fill="#253541"/>
+<circle cx="44" cy="265" r="14" fill="#9ba9b2"/><path d="M44 265L163 203" stroke="#929da7" stroke-width="4"/>
+<path d="M92 302H252" stroke="#677e8d" stroke-width="11"/><path d="M152 302L133 343M200 302L215 343" stroke="#657682" stroke-width="9"/>
+<path d="M179 182L213 205L209 261" stroke="#263440" stroke-width="36" fill="none"/>
+<path d="M206 256L169 292L117 291" stroke="#303e49" stroke-width="22" fill="none"/>
+<path d="M204 258L244 289" stroke="#303e49" stroke-width="20" fill="none"/>
+<path d="M181 176L181 146" stroke="#e5ad86" stroke-width="19"/><circle cx="182" cy="127" r="22" fill="#e5ad86" stroke="none"/><path d="M164 113Q180 96 197 112" stroke="#26313d" stroke-width="13" fill="none"/>
+<path d="M180 204L158 197L155 215" stroke="#d7a07a" stroke-width="18" fill="none"/>
+<path d="M155 215L148 222" stroke="#273c4c" stroke-width="13"/><path d="M150 206V236" stroke="#293a4a" stroke-width="6"/>
+<path d="M115 292H98M246 295H264" stroke="#1e2e3b" stroke-width="16"/>
+</g></g>
+<rect x="0" y="365" width="560" height="55" rx="10" fill="#ffffff" opacity=".93"/>
+<g fill="#31475b" font-family="Arial,sans-serif" font-size="22" font-weight="700" text-anchor="middle"><text x="140" y="398">Inicio</text><text x="420" y="398">Final</text></g></svg>
