@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 420" role="img" aria-labelledby="title desc">
+<title id="title">Remo con mancuernas y pecho apoyado</title><desc id="desc">Dos posiciones, inicial con los brazos estirados y final con los codos flexionados, apoyando el pecho en un banco inclinado.</desc>
+<defs><linearGradient id="bg" x2="0" y2="1"><stop stop-color="#f8fbfd"/><stop offset="1" stop-color="#e9f0f5"/></linearGradient><linearGradient id="seat" x2="1" y2="1"><stop stop-color="#556775"/><stop offset="1" stop-color="#293746"/></linearGradient></defs>
+<rect width="560" height="420" rx="18" fill="url(#bg)"/><path d="M280 20V365" stroke="#cbd7e2" stroke-width="2" stroke-dasharray="5 8"/>
+<g fill="none" stroke-linecap="round" stroke-linejoin="round">
+<g transform="translate(6 3)">
+<path d="M30 343H242" stroke="#778995" stroke-width="10"/>
+<path d="M90 342L170 129" stroke="#7c8c99" stroke-width="11"/><path d="M156 343L185 163" stroke="#7c8c99" stroke-width="9"/><path d="M101 333L203 333" stroke="#8898a5" stroke-width="10"/>
+<path d="M104 279L169 130" stroke="url(#seat)" stroke-width="29"/><path d="M102 285L168 129" stroke="#142532" stroke-width="9"/>
+<path d="M160 131L200 146L217 193" stroke="#303b46" stroke-width="35"/><path d="M207 198L241 233L249 301" stroke="#252e3a" stroke-width="22"/>
+<path d="M184 147L157 111" stroke="#dfad85" stroke-width="19"/><circle cx="154" cy="104" r="21" fill="#e3b28c" stroke="none"/><path d="M132 99Q133 77 160 83L174 99" stroke="#212832" stroke-width="15"/>
+<path d="M192 168L213 210L203 282" stroke="#dda77f" stroke-width="17"/><path d="M180 166L184 219L173 283" stroke="#d19d78" stroke-width="15"/>
+<path d="M189 293H215M163 293H187" stroke="#262f3a" stroke-width="16"/>
+<path d="M246 306L255 338M241 302L263 339" stroke="#252e38" stroke-width="19"/>
+</g>
+<g transform="translate(286 3)">
+<path d="M30 343H242" stroke="#778995" stroke-width="10"/>
+<path d="M90 342L170 129" stroke="#7c8c99" stroke-width="11"/><path d="M156 343L185 163" stroke="#7c8c99" stroke-width="9"/><path d="M101 333L203 333" stroke="#8898a5" stroke-width="10"/>
+<path d="M104 279L169 130" stroke="url(#seat)" stroke-width="29"/><path d="M102 285L168 129" stroke="#142532" stroke-width="9"/>
+<path d="M160 131L200 146L217 193" stroke="#303b46" stroke-width="35"/><path d="M207 198L241 233L249 301" stroke="#252e3a" stroke-width="22"/>
+<path d="M184 147L157 111" stroke="#dfad85" stroke-width="19"/><circle cx="154" cy="104" r="21" fill="#e3b28c" stroke="none"/><path d="M132 99Q133 77 160 83L174 99" stroke="#212832" stroke-width="15"/>
+<path d="M192 168L213 194L189 219" stroke="#dda77f" stroke-width="17"/><path d="M180 166L175 206L156 219" stroke="#d19d78" stroke-width="15"/>
+<path d="M174 221H196M144 221H166" stroke="#262f3a" stroke-width="16"/>
+<path d="M246 306L255 338M241 302L263 339" stroke="#252e38" stroke-width="19"/>
+</g></g>
+<rect x="0" y="365" width="560" height="55" rx="10" fill="#ffffff" opacity=".93"/>
+<g fill="#31475b" font-family="Arial,sans-serif" font-size="22" font-weight="700" text-anchor="middle"><text x="140" y="398">Inicio</text><text x="420" y="398">Final</text></g></svg>
