@@ -305,9 +305,31 @@ function syncSessionDay() {
   return wasViewingToday;
 }
 function getExercise(id) { return state.exercises.find(ex => ex.id === id); }
+// Keep legacy distances intact; derive average speed only when no speed was saved.
+function usesSpeed(ex) {
+  return ex?.group === "Cardio" &&
+    (["caminata-cinta", "skillmill-walking-running"].includes(ex.id) ||
+      /\b(walk(?:ing)?|jog(?:ging)?|run(?:ning)?|caminata|caminar|trote|trotar|corrida|correr|carrera)\b/i.test(`${ex.name || ""} ${ex.nameEs || ""} ${ex.legacyName || ""}`));
+}
+function cardioMetric(ex) {
+  return usesSpeed(ex)
+    ? { field: "speedKmh", label: "Velocidad km/h", heading: "Vel. km/h", unit: "km/h" }
+    : { field: "distanceKm", label: "Distancia km", heading: "Dist. km", unit: "km" };
+}
+function cardioValue(ex, set) {
+  if (!usesSpeed(ex)) return set.distanceKm;
+  if (Object.hasOwn(set, "speedKmh")) return set.speedKmh;
+  const minutes = decimalNumber(set.minutes), distance = decimalNumber(set.distanceKm);
+  return minutes > 0 && Number.isFinite(distance) && distance >= 0 && String(set.distanceKm ?? "").trim() !== ""
+    ? String(Math.round(distance * 60 / minutes * 100) / 100) : "";
+}
+function validCardioSet(ex, set) {
+  const minutes = decimalNumber(set.minutes), value = decimalNumber(cardioValue(ex, set));
+  return Number.isFinite(minutes) && minutes > 0 && Number.isFinite(value) && value >= 0;
+}
 function newSetFor(ex, previous = {}) {
   return ex?.group === "Cardio"
-    ? { id: uid(), minutes: previous.minutes || "", distanceKm: previous.distanceKm || "", done: false }
+    ? { id: uid(), minutes: previous.minutes || "", [cardioMetric(ex).field]: cardioValue(ex, previous) || "", done: false }
     : { id: uid(), kg: previous.kg || "", reps: previous.reps || "", done: false, autoDone: false };
 }
 function updateAutoDone(set) {
@@ -352,8 +374,8 @@ function lastPerformance(id, beforeDate = activeDate) {
       if (done.length) {
         const last = done.at(-1);
         const minutes = new Intl.NumberFormat("es-BO", { maximumFractionDigits: 2 }).format(decimalNumber(last.minutes));
-        const distance = decimalNumber(last.distanceKm);
-        return `${date.slice(8, 10)}/${date.slice(5, 7)} · ${minutes} min${distance > 0 ? ` · ${new Intl.NumberFormat("es-BO", { maximumFractionDigits: 2 }).format(distance)} km` : ""}`;
+        const distance = decimalNumber(cardioValue(getExercise(id), last));
+        return `${date.slice(8, 10)}/${date.slice(5, 7)} · ${minutes} min${distance > 0 ? ` · ${new Intl.NumberFormat("es-BO", { maximumFractionDigits: 2 }).format(distance)} ${cardioMetric(getExercise(id)).unit}` : ""}`;
       }
       continue;
     }
@@ -370,7 +392,7 @@ function recordedUses(id, beforeDate = `${todayISO()}~`) {
   return Object.keys(state.sessions).filter(date => date < beforeDate).sort().map(date => {
     const sets = (state.sessions[date].sets?.[id] || []).filter(set => {
       if (!set.done) return false;
-      if (cardio) return Number.isFinite(decimalNumber(set.minutes)) && decimalNumber(set.minutes) > 0 && Number.isFinite(decimalNumber(set.distanceKm)) && decimalNumber(set.distanceKm) >= 0;
+      if (cardio) return validCardioSet(getExercise(id), set);
       return Number.isInteger(Number(set.reps)) && Number(set.reps) > 0 && Number.isFinite(decimalNumber(set.kg)) && decimalNumber(set.kg) >= 0;
     });
     return { date, sets, maxKg: cardio || !sets.length ? null : Math.max(...sets.map(set => decimalNumber(set.kg))) };
@@ -421,7 +443,7 @@ function lastUseMarkup(id, beforeDate) {
   const use = recordedUses(id, beforeDate).at(-1);
   if (!use) return performanceWidget(id, "last-use", "Último uso", `<span class="performance-empty">No hay series completadas registradas para este ejercicio.</span>`);
   const cardio = getExercise(id)?.group === "Cardio";
-  const summary = use.sets.map((set, i) => `<span class="last-use-set"><span class="previous-set-number">${i + 1}.</span> ${cardio ? `${formatMeasure(set.minutes)} min · ${formatMeasure(set.distanceKm)} km` : `${formatMeasure(set.kg)} kg × ${escapeHtml(set.reps)} reps`}</span>`).join("");
+  const summary = use.sets.map((set, i) => `<span class="last-use-set"><span class="previous-set-number">${i + 1}.</span> ${cardio ? `${formatMeasure(set.minutes)} min · ${formatMeasure(cardioValue(getExercise(id), set))} ${cardioMetric(getExercise(id)).unit}` : `${formatMeasure(set.kg)} kg × ${escapeHtml(set.reps)} reps`}</span>`).join("");
   return performanceWidget(id, "last-use", `Último uso · ${shortUseDate(use.date)}/${use.date.slice(0, 4)}`, `<div class="last-use-sets">${summary}</div>${cardio ? maximumSummaryMarkup(id) : ""}`);
 }
 function weightHistoryMarkup(id, beforeDate) {
@@ -440,7 +462,7 @@ function cardioMaximum(id) {
     for (const set of session.sets?.[id] || []) {
       if (!set.done) continue;
       const minutes = decimalNumber(set.minutes);
-      const distanceKm = decimalNumber(set.distanceKm);
+      const distanceKm = decimalNumber(cardioValue(getExercise(id), set));
       if (!Number.isFinite(minutes) || minutes <= 0 || !Number.isFinite(distanceKm) || distanceKm < 0) continue;
       const candidate = { minutes, distanceKm, date };
       if (!best || distanceKm > best.distanceKm ||
@@ -476,7 +498,7 @@ function maximumSummaryMarkup(id) {
     if (!maximum) return `<span class="graph-note historical-summary">Máximo histórico: sin registros.</span>`;
     const date = `${maximum.date.slice(8, 10)}/${maximum.date.slice(5, 7)}/${maximum.date.slice(0, 4)}`;
     const format = number => new Intl.NumberFormat("es-BO", { maximumFractionDigits: 2 }).format(number);
-    const value = maximum.distanceKm > 0 ? `${format(maximum.distanceKm)} km` : `${format(maximum.minutes)} min`;
+    const value = maximum.distanceKm > 0 ? `${format(maximum.distanceKm)} ${cardioMetric(getExercise(id)).unit}` : `${format(maximum.minutes)} min`;
     const detail = maximum.distanceKm > 0 ? `${format(maximum.minutes)} min · ${date}` : date;
     return `<span class="graph-note historical-summary">Máximo histórico: ${escapeHtml(value)} · ${escapeHtml(detail)}</span>`;
   }
@@ -520,7 +542,7 @@ function renderToday() {
 }
 function renderSetFields(ex, set, index) {
   const fields = ex.group === "Cardio"
-    ? [["minutes", "Minutos", set.minutes], ["distanceKm", "Distancia km", set.distanceKm]]
+    ? [["minutes", "Minutos", set.minutes], [cardioMetric(ex).field, cardioMetric(ex).label, cardioValue(ex, set)]]
     : [["kg", "Peso kg", set.kg], ["reps", "Repeticiones", set.reps]];
   return fields.map(([field, label, value]) => `<input class="set-input" type="${field === "reps" ? "number" : "text"}" ${field === "reps" ? 'min="0"' : ""} inputmode="${field === "reps" ? "numeric" : "decimal"}" placeholder="—" value="${escapeHtml(value)}" data-set-field="${field}" data-ex="${ex.id}" data-set-id="${set.id}" aria-label="${label} serie ${index + 1} de ${escapeHtml(ex.name)}" />`).join("");
 }
@@ -552,7 +574,7 @@ function renderSessionExercise(ex, session, index) {
   return `<article class="session-card${done ? " done" : ""}">
     <div class="session-main">${imageMarkup(ex)}<div class="session-copy"><div class="exercise-kicker">${pair} · ${escapeHtml(ex.group)}</div><h3 class="exercise-title" lang="en">${escapeHtml(ex.name)}</h3>${translationMarkup(ex)}${lastUseMarkup(ex.id, activeDate)}</div><button type="button" class="complete-button${done ? " done" : ""}" data-action="toggle-complete" data-id="${ex.id}" aria-label="${done ? "Marcar pendiente" : "Marcar completado"}: ${escapeHtml(ex.name)}" aria-pressed="${done}"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></button></div>
     ${weightHistoryMarkup(ex.id, activeDate)}<button type="button" class="expand-button" data-action="expand" data-id="${ex.id}" aria-expanded="${isOpen}"><span>${sets.filter(set => set.done).length} de ${sets.length} series hechas</span><svg viewBox="0 0 24 24"><path d="m5 9 7 7 7-7"/></svg></button>
-    ${isOpen ? `<div class="sets-panel"><div class="set-header"><span>Serie</span><span>${ex.group === "Cardio" ? "Minutos" : "Peso kg"}</span><span>${ex.group === "Cardio" ? "Dist. km" : "Reps"}</span><span>Hecha</span><span></span></div>${sets.map((set, i) => `<div class="set-row"><span class="set-index">${String(i + 1).padStart(2, "0")}</span>${renderSetFields(ex, set, i)}<input class="set-check" type="checkbox" ${set.done ? "checked" : ""} data-set-done data-ex="${ex.id}" data-set-id="${set.id}" aria-label="Serie ${i + 1} hecha" /><button type="button" class="remove-set" data-action="remove-set" data-id="${ex.id}" data-set-id="${set.id}" aria-label="Quitar serie ${i + 1}"><svg viewBox="0 0 24 24"><path d="M5 7h14m-12 0 1 13h8l1-13M9 7V4h6v3"/></svg></button></div>`).join("")}<div class="panel-actions"><button type="button" class="add-set" data-action="add-set" data-id="${ex.id}">+ Añadir serie</button><button type="button" class="remove-from-day" data-action="remove-exercise" data-id="${ex.id}">Quitar de hoy</button></div></div>` : ""}</article>`;
+    ${isOpen ? `<div class="sets-panel"><div class="set-header"><span>Serie</span><span>${ex.group === "Cardio" ? "Minutos" : "Peso kg"}</span><span>${ex.group === "Cardio" ? cardioMetric(ex).heading : "Reps"}</span><span>Hecha</span><span></span></div>${sets.map((set, i) => `<div class="set-row"><span class="set-index">${String(i + 1).padStart(2, "0")}</span>${renderSetFields(ex, set, i)}<input class="set-check" type="checkbox" ${set.done ? "checked" : ""} data-set-done data-ex="${ex.id}" data-set-id="${set.id}" aria-label="Serie ${i + 1} hecha" /><button type="button" class="remove-set" data-action="remove-set" data-id="${ex.id}" data-set-id="${set.id}" aria-label="Quitar serie ${i + 1}"><svg viewBox="0 0 24 24"><path d="M5 7h14m-12 0 1 13h8l1-13M9 7V4h6v3"/></svg></button></div>`).join("")}<div class="panel-actions"><button type="button" class="add-set" data-action="add-set" data-id="${ex.id}">+ Añadir serie</button><button type="button" class="remove-from-day" data-action="remove-exercise" data-id="${ex.id}">Quitar de hoy</button></div></div>` : ""}</article>`;
 }
 function renderCatalog() {
   ensureSession();
@@ -632,7 +654,7 @@ function hasSessionActivity(session) {
   if (!session) return false;
   if (Object.values(session.completed || {}).some(value => value === true)) return true;
   return Object.values(session.sets || {}).some(sets => sets.some(set => set.done === true ||
-    [set.kg, set.reps, set.minutes, set.distanceKm].some(value => Number.isFinite(decimalNumber(value)) && decimalNumber(value) > 0)));
+    [set.kg, set.reps, set.minutes, set.distanceKm, set.speedKmh].some(value => Number.isFinite(decimalNumber(value)) && decimalNumber(value) > 0)));
 }
 function shiftHistoryMonth(offset) {
   const [year, month] = historyMonth.split("-").map(Number);
@@ -654,7 +676,7 @@ function renderHistory() {
     const hasRecord = recorded.has(date);
     return `<button type="button" class="calendar-day${hasRecord ? " has-record" : ""}${date === todayISO() ? " is-today" : ""}" data-action="open-date" data-date="${date}" ${hasRecord ? "" : "disabled"} ${date === todayISO() ? 'aria-current="date"' : ""} aria-label="${escapeHtml(formatDate(date))}: ${hasRecord ? "con registro, abrir sesión" : "sin registro"}"><span>${day}</span>${hasRecord ? '<span class="calendar-dot" aria-hidden="true"></span>' : ""}</button>`;
   }).join("");
-  return `<div class="view-header"><div><p class="eyebrow">Tu progreso</p><h1 class="view-title">Historial</h1><div class="subtle">Toca un día con registro para revisar tu sesión.</div></div></div><section class="history-calendar" aria-labelledby="calendar-title"><div class="calendar-heading"><button type="button" class="secondary-button calendar-arrow" data-action="history-prev" aria-label="Mes anterior">‹</button><h2 id="calendar-title">${escapeHtml(label)}</h2><button type="button" class="secondary-button calendar-arrow" data-action="history-next" aria-label="Mes siguiente">›</button></div><div class="calendar-tools"><label for="history-month">Ir al mes</label><input id="history-month" class="date-input" type="month" min="1900-01" max="9999-12" value="${historyMonth}" /><button type="button" class="text-button" data-action="history-current">Este mes</button></div><div class="calendar-weekdays" aria-hidden="true">${["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map(day => `<span>${day}</span>`).join("")}</div><div class="calendar-days">${cells}</div><div class="calendar-legend"><span class="calendar-dot" aria-hidden="true"></span> Día con registro <span class="calendar-total">${count} ${count === 1 ? "día este mes" : "días este mes"}</span></div>${count ? "" : '<p class="calendar-empty">No hay entrenamientos registrados en este mes.</p>'}</section><p class="note">Un día cuenta cuando anotas peso, repeticiones, minutos o distancia, o marcas una serie o ejercicio como hecho. Los días que solo abres o preparas no aparecen como trabajados.</p>`;
+  return `<div class="view-header"><div><p class="eyebrow">Tu progreso</p><h1 class="view-title">Historial</h1><div class="subtle">Toca un día con registro para revisar tu sesión.</div></div></div><section class="history-calendar" aria-labelledby="calendar-title"><div class="calendar-heading"><button type="button" class="secondary-button calendar-arrow" data-action="history-prev" aria-label="Mes anterior">‹</button><h2 id="calendar-title">${escapeHtml(label)}</h2><button type="button" class="secondary-button calendar-arrow" data-action="history-next" aria-label="Mes siguiente">›</button></div><div class="calendar-tools"><label for="history-month">Ir al mes</label><input id="history-month" class="date-input" type="month" min="1900-01" max="9999-12" value="${historyMonth}" /><button type="button" class="text-button" data-action="history-current">Este mes</button></div><div class="calendar-weekdays" aria-hidden="true">${["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map(day => `<span>${day}</span>`).join("")}</div><div class="calendar-days">${cells}</div><div class="calendar-legend"><span class="calendar-dot" aria-hidden="true"></span> Día con registro <span class="calendar-total">${count} ${count === 1 ? "día este mes" : "días este mes"}</span></div>${count ? "" : '<p class="calendar-empty">No hay entrenamientos registrados en este mes.</p>'}</section><p class="note">Un día cuenta cuando anotas peso, repeticiones, minutos, velocidad o distancia, o marcas una serie o ejercicio como hecho. Los días que solo abres o preparas no aparecen como trabajados.</p>`;
 }
 function openDeleteSession(date) {
   if (!hasSessionActivity(state.sessions[date])) return;
@@ -937,7 +959,7 @@ document.addEventListener("change", event => {
     const set = ensureSession().sets[event.target.dataset.ex]?.find(item => item.id === event.target.dataset.setId);
     if (!set) return;
     const cardio = getExercise(event.target.dataset.ex)?.group === "Cardio";
-    if (event.target.checked && cardio && (!Number.isFinite(decimalNumber(set.minutes)) || decimalNumber(set.minutes) <= 0 || !Number.isFinite(decimalNumber(set.distanceKm)) || decimalNumber(set.distanceKm) < 0)) { event.target.checked = false; showToast("Anota los minutos primero"); return; }
+    if (event.target.checked && cardio && !validCardioSet(getExercise(event.target.dataset.ex), set)) { event.target.checked = false; showToast("Anota los minutos primero"); return; }
     if (event.target.checked && !cardio && (!Number.isInteger(Number(set.reps)) || Number(set.reps) <= 0)) { event.target.checked = false; showToast("Anota las repeticiones primero"); return; }
     set.done = event.target.checked;
     set.autoDone = false;
