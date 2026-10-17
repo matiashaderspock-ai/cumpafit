@@ -34,8 +34,8 @@ test("new back exercises have unique stable catalog IDs, names and dedicated ill
 });
 
 test("illustrations are included in the offline cache and are valid-looking SVG files", () => {
-  assert.match(sw, /const CACHE = "cumpafit-v33"/);
-  assert.match(html, /app\.js\?v=33/);
+  const version = sw.match(/cumpafit-v(\d+)/)[1];
+  assert.ok(html.includes(`app.js?v=${version}`));
   for (const { image } of variants) {
     assert.ok(sw.includes(`"./assets/${image}"`), image);
     const svg = readFileSync(join(root, "assets", image), "utf8");

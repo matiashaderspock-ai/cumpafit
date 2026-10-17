@@ -145,5 +145,5 @@ test('cardio gets three empty rows and keeps manual completion behavior', () => 
     addToSession(cardioId);`);
   assert.equal(a.run('ensureSession().sets[cardioId].length'), 3);
   // Strength-only auto completion must not interpret cardio fields as weight/reps.
-  assert.equal(a.run('ensureSession().sets[cardioId].every(set => !set.done && set.minutes === "" && set.distanceKm === "")'), true);
+  assert.equal(a.run('ensureSession().sets[cardioId].every(set => !set.done && set.minutes === "" && set.speedKmh === "")'), true);
 });
