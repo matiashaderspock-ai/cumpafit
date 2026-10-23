@@ -518,6 +518,8 @@ function showToast(message) {
 function render() {
   const view = $("#view");
   const filterScrollLeft = view.querySelector(".filter-row")?.scrollLeft || 0;
+  $(".topbar").hidden = tab === "today";
+  view.classList.toggle("session-view", tab === "today");
   view.innerHTML = tab === "today" ? renderToday() : tab === "catalog" ? renderCatalog() : tab === "routines" ? renderRoutinesPage() : renderHistory();
   const filterRow = view.querySelector(".filter-row");
   if (filterRow) filterRow.scrollLeft = filterScrollLeft;
@@ -530,15 +532,10 @@ function renderToday() {
   const session = ensureSession();
   const exercises = session.selected.map(getExercise).filter(Boolean);
   const completed = exercises.filter(ex => isExerciseComplete(session, ex.id)).length;
-  const completedSets = exercises.reduce((sum, ex) => sum + (session.sets[ex.id] || []).filter(set => set.done).length, 0);
-  const totalSets = exercises.reduce((sum, ex) => sum + (session.sets[ex.id] || []).length, 0);
-  return `<div class="view-header"><div><p class="eyebrow">Entrenamiento</p><h1 class="view-title">Tu sesión</h1><div class="subtle">${formatDate(activeDate)}</div></div><input class="date-input" type="date" id="session-date" value="${activeDate}" aria-label="Fecha de la sesión" /></div>
-    ${hasSessionActivity(session) ? `<div class="session-toolbar"><button type="button" class="text-button" data-action="go-history">‹ Volver al calendario</button><button type="button" class="delete-session-button" data-action="delete-session" data-date="${activeDate}">Eliminar sesión</button></div>` : ""}
-    <section class="summary-card" aria-label="Progreso de la sesión"><div class="summary-top"><div><div class="summary-label">Ejercicios completados</div><div class="summary-number">${completed}<span> / ${exercises.length}</span></div></div><span class="summary-pill">${completedSets} / ${totalSets} series</span></div><div class="progress-track"><div class="progress-fill" style="width:${exercises.length ? completed / exercises.length * 100 : 0}%"></div></div><div class="summary-foot">Un ejercicio se completa al terminar todas sus series.</div></section>
-    <div class="session-finish"><div><strong>${session.finishedAt ? "✓ Sesión terminada" : "¿Terminaste por hoy?"}</strong><p>${session.finishedAt ? "Tus registros se conservan y puedes corregirlos aquí." : "Guarda tu entrenamiento aunque queden ejercicios pendientes."}</p></div><button type="button" class="${session.finishedAt ? "secondary-button" : "primary-button"}" data-action="${session.finishedAt ? "reopen-session" : "finish-session"}" data-date="${activeDate}">${session.finishedAt ? "Reabrir sesión" : "Terminar sesión"}</button></div>
+  return `<section class="summary-card" aria-label="Progreso de la sesión"><div class="summary-number" aria-label="${completed} de ${exercises.length} ejercicios completados">${completed}<span> / ${exercises.length}</span></div><div class="progress-track" role="progressbar" aria-label="Ejercicios completados" aria-valuemin="0" aria-valuemax="${exercises.length || 1}" aria-valuenow="${completed}"><div class="progress-fill" style="width:${exercises.length ? completed / exercises.length * 100 : 0}%"></div></div></section>
     <div class="section-head"><h2>Ejercicios de esta sesión</h2><button class="text-button" type="button" data-action="go-catalog">+ Elegir ejercicios</button></div>
     ${exercises.length ? `<div class="session-list">${exercises.map((ex, index) => renderSessionExercise(ex, session, index)).join("")}</div>` : `<div class="empty-state"><div class="empty-icon">＋</div><h3>Tu sesión está vacía</h3><p>Elige los ejercicios que quieras hacer hoy.</p><button class="primary-button" data-action="go-catalog">Abrir inventario</button></div>`}
-    <p class="note">Los datos se guardan en este dispositivo. Haz un respaldo desde el botón superior.</p>`;
+    <div class="session-finish"><div><strong>${session.finishedAt ? "✓ Sesión terminada" : "¿Terminaste por hoy?"}</strong><p>${session.finishedAt ? "Tus registros se conservan y puedes corregirlos aquí." : "Guarda tu entrenamiento aunque queden ejercicios pendientes."}</p></div><button type="button" class="${session.finishedAt ? "secondary-button" : "primary-button"}" data-action="${session.finishedAt ? "reopen-session" : "finish-session"}" data-date="${activeDate}">${session.finishedAt ? "Reabrir sesión" : "Terminar sesión"}</button></div>`;
 }
 function renderSetFields(ex, set, index) {
   const fields = ex.group === "Cardio"
@@ -775,7 +772,12 @@ function addToSession(id) {
   const session = ensureSession();
   if (session.selected.includes(id)) return;
   session.selected.push(id);
-  session.sets[id] ||= Array.from({ length: 3 }, () => newSetFor(getExercise(id)));
+  if (!session.sets[id]) {
+    const ex = getExercise(id);
+    // Reuse the last completed strength set, without inheriting completion flags.
+    const previous = ex?.group === "Cardio" ? undefined : recordedUses(id, activeDate).at(-1)?.sets.at(-1);
+    session.sets[id] = Array.from({ length: 3 }, () => newSetFor(ex, previous));
+  }
   expandedId = id;
   persist();
 }
