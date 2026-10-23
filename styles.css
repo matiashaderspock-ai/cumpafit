@@ -38,3 +38,40 @@
 .performance-widget .last-use-sets{font-size:11px;font-weight:400;line-height:1.4}.favorite-button .favorite-star{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}.favorite-button.is-favorite .favorite-star{fill:currentColor}
 
 .topbar[hidden]{display:none}main.session-view{padding-top:12px}.session-view .summary-card{display:flex;align-items:center;gap:16px;padding:14px 18px;margin-bottom:20px;border-radius:16px}.session-view .summary-card:after{display:none}.session-view .summary-number{flex:none;font-size:24px;line-height:1.2;white-space:nowrap;font-variant-numeric:tabular-nums}.session-view .summary-number span{font-size:17px}.session-view .progress-track{flex:1;min-width:0;margin-top:0;height:7px}
+
+/* Compact session exercise cards. */
+.session-card .session-main{display:grid;grid-template-columns:40px minmax(0,1fr) 32px;gap:8px;padding:10px}
+.session-card .session-main>.exercise-image{width:40px;height:40px;object-fit:contain;border-radius:8px}
+.session-card .session-main>.image-pending span{display:none}
+.session-heading{min-width:0;margin:0;line-height:1.5;white-space:nowrap;overflow-x:auto;scrollbar-width:thin}
+.session-heading .exercise-kicker{display:inline;margin:0;font-size:9px;letter-spacing:.02em}
+.session-exercise-name{font-size:12px;font-weight:760;letter-spacing:-.02em}
+.session-card .complete-button{width:32px;height:32px}
+.session-card>.session-performance{display:block;width:calc(100% - 20px);margin:0 10px 8px;padding:8px 10px;border-radius:10px;background:#f9fbfa;overflow:hidden}
+.session-performance-head{position:relative;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;padding-right:14px;align-items:start}
+.session-performance-head .performance-label{margin:0;font-size:10px;line-height:1.4;letter-spacing:0}
+.session-performance-chevron{position:absolute;right:-3px;top:0;width:15px;height:15px;transform:rotate(180deg)}
+.session-performance[aria-expanded="false"] .session-performance-chevron{transform:none}
+.session-performance .session-performance-columns{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;padding:7px 0 0;align-items:start}
+.session-performance-columns>span{display:block;min-width:0}
+.session-performance .session-last-use .last-use-sets{display:flex;flex-direction:column;gap:3px;font-size:11px;line-height:1.5}
+.session-performance .last-use-set{white-space:normal;overflow-wrap:anywhere}
+.session-weight-history{padding-left:10px;border-left:1px solid #e2e8e4}
+.session-performance .weight-sparkline{max-height:100px;overflow:hidden}
+.session-performance .weight-sparkline text{font-size:11px}
+.session-performance .historical-summary{font-size:10px;line-height:1.4;overflow-wrap:anywhere}
+.session-performance .performance-empty{font-size:11px;line-height:1.4}
+.session-performance.is-cardio .session-performance-head,.session-performance.is-cardio .session-performance-columns{grid-template-columns:minmax(0,1fr)}
+.session-card .expand-button{min-height:32px;padding:6px 10px;font-size:11px}
+.session-card .sets-panel{padding:7px 10px 4px}
+.session-card .set-header,.session-card .set-row{grid-template-columns:24px minmax(0,68px) minmax(0,58px) 32px 28px;gap:6px;justify-content:center}
+.session-card .set-header{font-size:9px;letter-spacing:.04em;margin-bottom:2px}
+.session-card .set-row{min-height:36px;margin-top:3px}
+.session-card .set-index{font-size:11px}
+.session-card .set-input{height:32px;padding:4px;border-radius:7px;font-size:16px}
+.session-card .set-check{width:28px;height:28px;border-radius:7px}
+.session-card .remove-set{display:grid;place-items:center;width:28px;min-height:36px;padding:0}
+.session-card .panel-actions{margin-top:3px;min-height:36px}
+.session-card .add-set{display:grid;place-items:center;min-width:44px;min-height:36px;padding:0;border:0;border-radius:0;background:transparent;font-size:26px;line-height:1;font-weight:500}
+.session-card .remove-from-day{min-height:36px;padding:4px 0;font-size:11px}
+.session-card .add-set:focus-visible,.session-card .remove-from-day:focus-visible{outline:2px solid #b56f42;outline-offset:1px}
