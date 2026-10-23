@@ -59,7 +59,7 @@ for (const weight of ['22,5', '22.5']) {
     assert.equal(a.run('saved.sessions[activeDate].sets[exId][0].autoDone'), true);
     assert.equal(a.checkbox.checked, true);
     assert.equal(a.count.textContent, '1 de 3 series hechas');
-    assert.match(a.summary.html, /1 \/ 3 series/);
+    assert.match(a.summary.html, /aria-valuenow="0"/);
     assert.equal(a.run('renders'), 0, 'typing must not replace the active input');
   });
 }
@@ -84,9 +84,13 @@ test('all automatic ticks synchronize the exercise badge and clear a stale exerc
   assert.equal(a.badge['aria-pressed'], 'true');
   assert.equal(a.card.classList.done, true);
   assert.equal(a.count.textContent, '3 de 3 series hechas');
+  assert.match(a.summary.html, /aria-valuenow="1"/);
+  assert.match(a.summary.html, /width:100%/);
   assert.match(a.run('renderSessionExercise(getExercise(exId), ensureSession(), 0)'), /complete-button done/);
   a.input('reps', '', 2);
   assert.equal(a.badge['aria-pressed'], 'false');
+  assert.match(a.summary.html, /aria-valuenow="0"/);
+  assert.match(a.summary.html, /width:0%/);
   assert.equal(a.run('isExerciseComplete(ensureSession(), exId)'), false);
 });
 
@@ -137,6 +141,78 @@ test('re-adding a saved exercise preserves its rows and values', () => {
     removeFromSession(exId); addToSession(exId);`);
   assert.equal(a.run('sets.length'), 1);
   assert.equal(a.run('sets[0].kg'), '40');
+});
+
+test('new session repeats the last completed set in three independent unchecked rows', () => {
+  const a = app();
+  a.run(`activeDate = '2026-10-01'; addToSession(exId);
+    const historical = ensureSession().sets[exId];
+    Object.assign(historical[0], { kg: '60', reps: '8', done: true });
+    Object.assign(historical[1], { kg: '22,5', reps: '12', done: true, autoDone: true, manualDone: true });
+    Object.assign(historical[2], { kg: '70', reps: '6', done: false });
+    ensureSession().completed[exId] = true;
+    const before = JSON.stringify(ensureSession());
+    activeDate = '2026-10-02'; addToSession(exId);
+    const copied = ensureSession().sets[exId];`);
+  assert.equal(a.run('copied.length'), 3);
+  assert.equal(a.run('new Set(copied.map(set => set.id)).size'), 3);
+  assert.equal(a.run('copied.every(set => set.kg === "22,5" && set.reps === "12" && !set.done && !set.autoDone && !set.manualDone)'), true);
+  assert.equal(a.run('copied.every(set => historical.every(old => old.id !== set.id))'), true);
+  assert.equal(a.run('isExerciseComplete(ensureSession(), exId)'), false);
+  assert.match(a.run('renderSessionExercise(getExercise(exId), ensureSession(), 0)'), /0 de 3 series hechas/);
+  assert.doesNotMatch(a.run('renderSessionExercise(getExercise(exId), ensureSession(), 0)'), /type="checkbox" checked/);
+  a.run('state = structuredClone(saved); renderToday();');
+  assert.equal(a.run('ensureSession().sets[exId].every(set => !set.done && !set.autoDone)'), true);
+  a.run('ensureSession().sets[exId][0].kg = "30";');
+  assert.equal(a.run('ensureSession().sets[exId][1].kg'), '22,5');
+  assert.equal(a.run('JSON.stringify(state.sessions["2026-10-01"]) === before'), true);
+});
+
+test('prefill uses the latest earlier completed use of the same exercise', () => {
+  const a = app();
+  a.run(`for (const [date, kg, done] of [
+      ['2026-10-04', '90', true], ['2026-10-01', '20', true],
+      ['2026-10-02', '25', true], ['2026-10-03', '30', false]]) {
+      activeDate = date; addToSession(exId);
+      Object.assign(ensureSession().sets[exId][0], { kg, reps: '10', done });
+    }
+    const otherId = STARTER_EXERCISES[1].id; addToSession(otherId);
+    Object.assign(ensureSession().sets[otherId][0], { kg: '99', reps: '5', done: true });
+    activeDate = '2026-10-03'; delete state.sessions[activeDate]; addToSession(exId);`);
+  assert.equal(a.run('ensureSession().sets[exId].every(set => set.kg === "25" && set.reps === "10" && !set.done)'), true);
+});
+
+for (const kg of ['', '0']) {
+  test(`bodyweight history (${JSON.stringify(kg)}) prefills reps without marking done`, () => {
+    const a = app();
+    a.run(`activeDate = '2026-10-01'; addToSession(exId);
+      Object.assign(ensureSession().sets[exId][0], { kg: ${JSON.stringify(kg)}, reps: '15', done: true });
+      activeDate = '2026-10-02'; addToSession(exId);`);
+    assert.equal(a.run(`ensureSession().sets[exId].every(set => set.kg === ${JSON.stringify(kg)} && set.reps === '15' && !set.done)`), true);
+  });
+}
+
+test('uncompleted history does not prefill a new exercise', () => {
+  const a = app();
+  a.run(`activeDate = '2026-10-01'; addToSession(exId);
+    Object.assign(ensureSession().sets[exId][0], { kg: '40', reps: '8', done: false });
+    activeDate = '2026-10-02'; addToSession(exId);`);
+  assert.equal(a.run('ensureSession().sets[exId].every(set => set.kg === "" && set.reps === "" && !set.done)'), true);
+});
+
+test('adding a routine prefills new exercises and preserves existing session rows', async () => {
+  const a = app();
+  a.run(`activeDate = '2026-10-01'; addToSession(exId);
+    Object.assign(ensureSession().sets[exId][0], { kg: '40', reps: '8', done: true });
+    activeDate = '2026-10-02';
+    const otherId = STARTER_EXERCISES[1].id; addToSession(otherId);
+    Object.assign(ensureSession().sets[otherId][0], { kg: '15', reps: '10', done: true });
+    state.routines.push({ id: 'prefill-routine', name: 'Example', exerciseIds: [exId, otherId] });
+    persistNow = async () => { persist(); };`);
+  await a.run('addRoutineToSession("prefill-routine")');
+  assert.equal(a.run('ensureSession().sets[exId].every(set => set.kg === "40" && set.reps === "8" && !set.done)'), true);
+  assert.equal(a.run('ensureSession().sets[otherId][0].done'), true);
+  assert.equal(a.run('ensureSession().selected.length'), 2);
 });
 
 test('cardio gets three empty rows and keeps manual completion behavior', () => {
