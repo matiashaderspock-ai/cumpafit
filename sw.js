@@ -1,14 +1,14 @@
-const CACHE = "cumpafit-v36";
+const CACHE = "cumpafit-v37";
 const FILES = [
   "./",
   "./index.html",
-  "./styles.css?v=36",
-  "./app.js?v=36",
-  "./manifest.webmanifest?v=36",
-  "./assets/icon.svg?v=36",
-  "./assets/apple-touch-icon.png?v=36",
-  "./assets/icon-192.png?v=36",
-  "./assets/icon-512.png?v=36",
+  "./styles.css?v=37",
+  "./app.js?v=37",
+  "./manifest.webmanifest?v=37",
+  "./assets/icon.svg?v=37",
+  "./assets/apple-touch-icon.png?v=37",
+  "./assets/icon-192.png?v=37",
+  "./assets/icon-512.png?v=37",
   "./assets/ejercicios-referencia.png",
   "./assets/curl-inclinado-hd.jpg",
   "./assets/triceps-pushdown-hd.jpg",

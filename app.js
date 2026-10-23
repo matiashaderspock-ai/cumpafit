@@ -439,22 +439,40 @@ function performanceWidgetsMarkup(id) {
   const name = getExercise(id)?.name || id;
   return `<div class="performance-widgets"><button type="button" class="widgets-toggle-all" data-action="toggle-performance-group" data-exercise-name="${escapeHtml(name)}" aria-label="Ampliar todos los registros: ${escapeHtml(name)}" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>${lastUseMarkup(id)}${weightHistoryMarkup(id)}</div>`;
 }
-function lastUseMarkup(id, beforeDate) {
+function lastUseContent(id, beforeDate, compact = false) {
   const use = recordedUses(id, beforeDate).at(-1);
-  if (!use) return performanceWidget(id, "last-use", "Último uso", `<span class="performance-empty">No hay series completadas registradas para este ejercicio.</span>`);
+  if (!use) return { label: "Último uso", body: `<span class="performance-empty">${compact ? "Sin registros anteriores." : "No hay series completadas registradas para este ejercicio."}</span>` };
   const cardio = getExercise(id)?.group === "Cardio";
   const summary = use.sets.map((set, i) => `<span class="last-use-set"><span class="previous-set-number">${i + 1}.</span> ${cardio ? `${formatMeasure(set.minutes)} min · ${formatMeasure(cardioValue(getExercise(id), set))} ${cardioMetric(getExercise(id)).unit}` : `${formatMeasure(set.kg)} kg × ${escapeHtml(set.reps)} reps`}</span>`).join("");
-  return performanceWidget(id, "last-use", `Último uso · ${shortUseDate(use.date)}/${use.date.slice(0, 4)}`, `<div class="last-use-sets">${summary}</div>${cardio ? maximumSummaryMarkup(id) : ""}`);
+  return { label: `Último uso · ${shortUseDate(use.date)}/${use.date.slice(0, 4)}`, body: `<span class="last-use-sets">${summary}</span>${cardio ? maximumSummaryMarkup(id) : ""}` };
 }
-function weightHistoryMarkup(id, beforeDate) {
-  if (getExercise(id)?.group === "Cardio") return "";
+function lastUseMarkup(id, beforeDate) {
+  const content = lastUseContent(id, beforeDate);
+  return performanceWidget(id, "last-use", content.label, content.body);
+}
+function weightHistoryContent(id, beforeDate, compact = false) {
+  if (getExercise(id)?.group === "Cardio") return null;
   const uses = recordedUses(id, beforeDate).slice(-4);
-  if (!uses.length) return performanceWidget(id, "weight-history", "Peso máximo · últimos 4 usos", `<span class="performance-empty">El gráfico aparecerá al registrar series hechas con peso y repeticiones.</span>${maximumSummaryMarkup(id)}`);
+  if (!uses.length) return { label: "Peso máximo · últimos 4 usos", body: `<span class="performance-empty">${compact ? "Sin usos anteriores." : "El gráfico aparecerá al registrar series hechas con peso y repeticiones."}</span>${maximumSummaryMarkup(id)}` };
   const values = uses.map(use => use.maxKg);
   const min = Math.min(...values), max = Math.max(...values);
-  const coords = uses.map((use, i) => ({ x: uses.length === 1 ? 150 : 24 + i * 252 / (uses.length - 1), y: max === min ? 44 : 66 - (use.maxKg - min) * 36 / (max - min), use }));
+  const width = compact ? 180 : 300;
+  const left = 24, right = width - 24;
+  const coords = uses.map((use, i) => ({ x: uses.length === 1 ? width / 2 : left + i * (right - left) / (uses.length - 1), y: max === min ? 44 : 66 - (use.maxKg - min) * 36 / (max - min), use }));
   const description = uses.map(use => `${use.date}: ${formatMeasure(use.maxKg)} kg`).join("; ");
-  return performanceWidget(id, "weight-history", `Peso máximo · últimos ${uses.length} ${uses.length === 1 ? "uso" : "usos"}`, `<svg class="weight-sparkline" viewBox="0 0 300 104" role="img" aria-label="${escapeHtml(description)}"><path class="graph-grid" d="M16 70H284M16 34H284"/>${coords.length > 1 ? `<polyline class="graph-line" points="${coords.map(p => `${p.x},${p.y}`).join(" ")}"/>` : ""}${coords.map(p => `<g><title>${escapeHtml(p.use.date)}: ${formatMeasure(p.use.maxKg)} kg</title><circle class="graph-dot" cx="${p.x}" cy="${p.y}" r="3.5"/><text x="${p.x}" y="${p.y - 10}" text-anchor="middle">${formatMeasure(p.use.maxKg)} kg</text><text class="graph-date" x="${p.x}" y="94" text-anchor="middle">${shortUseDate(p.use.date)}</text></g>`).join("")}</svg>${maximumSummaryMarkup(id)}`);
+  const body = `<svg class="weight-sparkline" viewBox="0 0 ${width} 104" role="img" aria-label="${escapeHtml(description)}"><path class="graph-grid" d="M16 70H${width - 16}M16 34H${width - 16}"/>${coords.length > 1 ? `<polyline class="graph-line" points="${coords.map(p => `${p.x},${p.y}`).join(" ")}"/>` : ""}${coords.map(p => `<g><title>${escapeHtml(p.use.date)}: ${formatMeasure(p.use.maxKg)} kg</title><circle class="graph-dot" cx="${p.x}" cy="${p.y}" r="3.5"/><text x="${p.x}" y="${p.y - 10}" text-anchor="middle">${formatMeasure(p.use.maxKg)} kg</text><text class="graph-date" x="${p.x}" y="94" text-anchor="middle">${shortUseDate(p.use.date)}</text></g>`).join("")}</svg>${maximumSummaryMarkup(id)}`;
+  return { label: `Peso máximo · últimos ${uses.length} ${uses.length === 1 ? "uso" : "usos"}`, body };
+}
+function weightHistoryMarkup(id, beforeDate) {
+  const content = weightHistoryContent(id, beforeDate);
+  return content ? performanceWidget(id, "weight-history", content.label, content.body) : "";
+}
+function sessionPerformanceMarkup(id) {
+  const last = lastUseContent(id, activeDate, true);
+  const history = weightHistoryContent(id, activeDate, true);
+  const key = `${tab}-${activeDate}-session-history-${id}`;
+  const description = `registros de ${getExercise(id)?.name || id}`;
+  return `<button type="button" class="performance-widget session-performance${history ? "" : " is-cardio"} is-expanded" data-action="toggle-performance-widget" data-widget-label="${escapeHtml(description)}" aria-expanded="true" aria-controls="${escapeHtml(key)}" aria-label="Minimizar ${escapeHtml(description)}"><span class="session-performance-head"><span class="performance-label">${escapeHtml(last.label)}</span>${history ? `<span class="performance-label">${escapeHtml(history.label)}</span>` : ""}<svg class="session-performance-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span><span class="performance-details session-performance-columns" id="${escapeHtml(key)}"><span class="session-last-use">${last.body}</span>${history ? `<span class="session-weight-history">${history.body}</span>` : ""}</span></button>`;
 }
 function cardioMaximum(id) {
   let best = null;
@@ -569,9 +587,9 @@ function renderSessionExercise(ex, session, index) {
   const done = isExerciseComplete(session, ex.id);
   const pair = `Ejercicio ${index + 1}`;
   return `<article class="session-card${done ? " done" : ""}">
-    <div class="session-main">${imageMarkup(ex)}<div class="session-copy"><div class="exercise-kicker">${pair} · ${escapeHtml(ex.group)}</div><h3 class="exercise-title" lang="en">${escapeHtml(ex.name)}</h3>${translationMarkup(ex)}${lastUseMarkup(ex.id, activeDate)}</div><button type="button" class="complete-button${done ? " done" : ""}" data-action="toggle-complete" data-id="${ex.id}" aria-label="${done ? "Marcar pendiente" : "Marcar completado"}: ${escapeHtml(ex.name)}" aria-pressed="${done}"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></button></div>
-    ${weightHistoryMarkup(ex.id, activeDate)}<button type="button" class="expand-button" data-action="expand" data-id="${ex.id}" aria-expanded="${isOpen}"><span>${sets.filter(set => set.done).length} de ${sets.length} series hechas</span><svg viewBox="0 0 24 24"><path d="m5 9 7 7 7-7"/></svg></button>
-    ${isOpen ? `<div class="sets-panel"><div class="set-header"><span>Serie</span><span>${ex.group === "Cardio" ? "Minutos" : "Peso kg"}</span><span>${ex.group === "Cardio" ? cardioMetric(ex).heading : "Reps"}</span><span>Hecha</span><span></span></div>${sets.map((set, i) => `<div class="set-row"><span class="set-index">${String(i + 1).padStart(2, "0")}</span>${renderSetFields(ex, set, i)}<input class="set-check" type="checkbox" ${set.done ? "checked" : ""} data-set-done data-ex="${ex.id}" data-set-id="${set.id}" aria-label="Serie ${i + 1} hecha" /><button type="button" class="remove-set" data-action="remove-set" data-id="${ex.id}" data-set-id="${set.id}" aria-label="Quitar serie ${i + 1}"><svg viewBox="0 0 24 24"><path d="M5 7h14m-12 0 1 13h8l1-13M9 7V4h6v3"/></svg></button></div>`).join("")}<div class="panel-actions"><button type="button" class="add-set" data-action="add-set" data-id="${ex.id}">+ Añadir serie</button><button type="button" class="remove-from-day" data-action="remove-exercise" data-id="${ex.id}">Quitar de hoy</button></div></div>` : ""}</article>`;
+    <div class="session-main">${imageMarkup(ex)}<h3 class="session-heading" title="${escapeHtml(`${pair} · ${ex.group} · ${ex.name}`)}"><span class="exercise-kicker">${pair} · ${escapeHtml(ex.group)} · </span><span class="session-exercise-name" lang="en">${escapeHtml(ex.name)}</span></h3><button type="button" class="complete-button${done ? " done" : ""}" data-action="toggle-complete" data-id="${ex.id}" aria-label="${done ? "Marcar pendiente" : "Marcar completado"}: ${escapeHtml(ex.name)}" aria-pressed="${done}"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></button></div>
+    ${sessionPerformanceMarkup(ex.id)}<button type="button" class="expand-button" data-action="expand" data-id="${ex.id}" aria-expanded="${isOpen}"><span>${sets.filter(set => set.done).length} de ${sets.length} series hechas</span><svg viewBox="0 0 24 24"><path d="m5 9 7 7 7-7"/></svg></button>
+    ${isOpen ? `<div class="sets-panel"><div class="set-header"><span>Serie</span><span>${ex.group === "Cardio" ? "Minutos" : "Peso kg"}</span><span>${ex.group === "Cardio" ? cardioMetric(ex).heading : "Reps"}</span><span>Hecha</span><span></span></div>${sets.map((set, i) => `<div class="set-row"><span class="set-index">${String(i + 1).padStart(2, "0")}</span>${renderSetFields(ex, set, i)}<input class="set-check" type="checkbox" ${set.done ? "checked" : ""} data-set-done data-ex="${ex.id}" data-set-id="${set.id}" aria-label="Serie ${i + 1} hecha" /><button type="button" class="remove-set" data-action="remove-set" data-id="${ex.id}" data-set-id="${set.id}" aria-label="Quitar serie ${i + 1}"><svg viewBox="0 0 24 24"><path d="M5 7h14m-12 0 1 13h8l1-13M9 7V4h6v3"/></svg></button></div>`).join("")}<div class="panel-actions"><button type="button" class="add-set" data-action="add-set" data-id="${ex.id}" aria-label="Añadir serie a ${escapeHtml(ex.name)}" title="Añadir serie"><span aria-hidden="true">+</span></button><button type="button" class="remove-from-day" data-action="remove-exercise" data-id="${ex.id}">Quitar de hoy</button></div></div>` : ""}</article>`;
 }
 function renderCatalog() {
   ensureSession();
