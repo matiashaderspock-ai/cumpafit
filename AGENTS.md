@@ -8,6 +8,7 @@ These instructions apply to Codex, ChatGPT Work, Grok Bot, and other contributor
 - Production is https://matiashaderspock-ai.github.io/cumpafit/. The existing GitHub Pages build and deployment publishes the root files from `main`.
 - The user installs this PWA on their iPhone Home Screen. Keep the Cumpafit production address and relative manifest start URL/scope (`./`) stable for future updates. The rename requires a new installation and JSON backup import; IndexedDB is `cumpafit`, version 1. Preserve compatibility with all version-1 JSON backups.
 - Every completed application change must be committed and pushed to this repository. Integrate release changes into `main` through the permitted repository workflow, then verify the Pages deployment and live files. A local edit or an unmerged branch is not a delivered iPhone update.
+- For requested application changes, the user authorizes pushing the implementation branch, opening a PR, and enabling auto-merge after all required checks pass, without asking for confirmation again. Preserve branch protections and required checks. Honor an explicit request to leave a PR for manual approval, and do not auto-merge PRs labeled `needs-matias`.
 - Report the commit, validation results, deployment status, and any remaining device check. Do not claim an iPhone check was performed from a desktop browser.
 
 ## Collaboration
