@@ -328,9 +328,11 @@ function validCardioSet(ex, set) {
   return Number.isFinite(minutes) && minutes > 0 && Number.isFinite(value) && value >= 0;
 }
 function newSetFor(ex, previous = {}) {
-  return ex?.group === "Cardio"
+  const set = ex?.group === "Cardio"
     ? { id: uid(), minutes: previous.minutes || "", [cardioMetric(ex).field]: cardioValue(ex, previous) || "", done: false }
     : { id: uid(), kg: previous.kg || "", reps: previous.reps || "", done: false, autoDone: false };
+  if ([set.kg, set.reps, set.minutes, set.distanceKm, set.speedKmh].some(value => String(value ?? "").trim() !== "")) set.prefilled = true;
+  return set;
 }
 function updateAutoDone(set) {
   // A deliberate checkbox choice survives later edits and reopening the app.
@@ -665,11 +667,46 @@ async function addRoutineToSession(id) {
   render();
   showToast(added.length ? `${added.length} ${added.length === 1 ? "ejercicio añadido" : "ejercicios añadidos"} a la sesión` : exercises.length ? "La rutina ya está en la sesión" : "Esta rutina no tiene ejercicios disponibles");
 }
+function hasRecordedSet(set) {
+  if (set.done === true) return true;
+  if (set.prefilled === true) return false;
+  return [set.kg, set.reps, set.minutes, set.distanceKm, set.speedKmh].some(value => Number.isFinite(decimalNumber(value)) && decimalNumber(value) > 0);
+}
 function hasSessionActivity(session) {
   if (!session) return false;
   if (Object.values(session.completed || {}).some(value => value === true)) return true;
-  return Object.values(session.sets || {}).some(sets => sets.some(set => set.done === true ||
-    [set.kg, set.reps, set.minutes, set.distanceKm, set.speedKmh].some(value => Number.isFinite(decimalNumber(value)) && decimalNumber(value) > 0)));
+  return Object.values(session.sets || {}).some(sets => sets.some(hasRecordedSet));
+}
+function sessionSummaryData(date) {
+  const session = state.sessions[date];
+  if (!session) return null;
+  const ids = [...new Set([...(session.selected || []), ...Object.keys(session.sets || {}), ...Object.keys(session.completed || {})])];
+  const exercises = ids.map(id => {
+    const sets = (session.sets?.[id] || []).map((set, index) => ({ set, number: index + 1 })).filter(row => hasRecordedSet(row.set));
+    return { exercise: getExercise(id), sets, markedDone: session.completed?.[id] === true };
+  }).filter(item => item.sets.length || item.markedDone);
+  return { exercises, completedSets: exercises.reduce((count, item) => count + item.sets.filter(row => row.set.done === true).length, 0), finished: Boolean(session.finishedAt) };
+}
+function summarySetText(exercise, set) {
+  const measure = value => String(value ?? "").trim() !== "" && Number.isFinite(decimalNumber(value)) && decimalNumber(value) >= 0 ? formatMeasure(value) : "—";
+  if (exercise?.group === "Cardio") {
+    const metric = cardioValue(exercise, set);
+    return `${measure(set.minutes)} min${String(metric ?? "").trim() !== "" ? ` · ${measure(metric)} ${cardioMetric(exercise).unit}` : ""}`;
+  }
+  const kg = decimalNumber(set.kg);
+  const weight = String(set.kg ?? "").trim() === "" || kg === 0 ? "Peso corporal" : `${measure(set.kg)} kg`;
+  return `${weight} × ${measure(set.reps)} reps`;
+}
+function renderHistorySummary(date) {
+  const summary = sessionSummaryData(date);
+  if (!summary) return "";
+  return `<h2 id="sheet-title">Resumen del entrenamiento</h2><p class="history-summary-date">${escapeHtml(formatDate(date))}${summary.finished ? " · Sesión terminada" : ""}</p>
+    ${summary.exercises.length ? `<div class="history-summary-totals"><span><strong>${summary.exercises.length}</strong> ${summary.exercises.length === 1 ? "ejercicio registrado" : "ejercicios registrados"}</span><span><strong>${summary.completedSets}</strong> ${summary.completedSets === 1 ? "serie hecha" : "series hechas"}</span></div>${summary.completedSets ? "" : '<p class="history-summary-notice">No hay series marcadas como realizadas. Estos datos quedaron registrados sin marcar.</p>'}<div class="history-summary-list">${summary.exercises.map(item => `<article class="history-summary-exercise"><h3>${escapeHtml(item.exercise?.name || "Ejercicio no disponible")}</h3>${item.exercise ? `<span class="history-summary-group">${escapeHtml(item.exercise.group)}</span>` : ""}${item.sets.length ? `<ul>${item.sets.map(row => `<li><span class="history-summary-index">${row.number}.</span><span>${escapeHtml(summarySetText(item.exercise, row.set))}</span><span class="history-summary-status${row.set.done ? " is-done" : ""}">${row.set.done ? "✓ Hecha" : "Sin marcar"}</span></li>`).join("")}</ul>` : '<p>Marcado como realizado, sin series detalladas.</p>'}</article>`).join("")}</div>` : '<div class="history-summary-empty"><strong>Sin actividad registrada</strong><p>Esta fecha solo tiene una sesión abierta o preparada. No cuenta como entrenamiento y podés eliminarla.</p></div>'}
+    <div class="sheet-buttons history-summary-actions"><button type="button" class="secondary-button" data-close-overlay>Cerrar</button><button type="button" class="delete-session-button" data-action="delete-session" data-date="${escapeHtml(date)}">Eliminar registro</button></div>`;
+}
+function openHistorySummary(date) {
+  if (!Object.hasOwn(state.sessions, date)) return;
+  openOverlay(renderHistorySummary(date));
 }
 function shiftHistoryMonth(offset) {
   const [year, month] = historyMonth.split("-").map(Number);
@@ -689,13 +726,14 @@ function renderHistory() {
     if (day < 1 || day > days) return `<span class="calendar-blank" aria-hidden="true"></span>`;
     const date = `${historyMonth}-${String(day).padStart(2, "0")}`;
     const hasRecord = recorded.has(date);
-    return `<button type="button" class="calendar-day${hasRecord ? " has-record" : ""}${date === todayISO() ? " is-today" : ""}" data-action="open-date" data-date="${date}" ${hasRecord ? "" : "disabled"} ${date === todayISO() ? 'aria-current="date"' : ""} aria-label="${escapeHtml(formatDate(date))}: ${hasRecord ? "con registro, abrir sesión" : "sin registro"}"><span>${day}</span>${hasRecord ? '<span class="calendar-dot" aria-hidden="true"></span>' : ""}</button>`;
+    const hasDraft = !hasRecord && Object.hasOwn(state.sessions, date);
+    return `<button type="button" class="calendar-day${hasRecord ? " has-record" : hasDraft ? " has-draft" : ""}${date === todayISO() ? " is-today" : ""}" data-action="open-date" data-date="${date}" ${hasRecord || hasDraft ? "" : "disabled"} ${date === todayISO() ? 'aria-current="date"' : ""} aria-label="${escapeHtml(formatDate(date))}: ${hasRecord ? "con registro, ver resumen" : hasDraft ? "sin actividad, revisar o eliminar registro" : "sin registro"}"><span>${day}</span>${hasRecord ? '<span class="calendar-dot" aria-hidden="true"></span>' : hasDraft ? '<span class="calendar-dot draft-dot" aria-hidden="true"></span>' : ""}</button>`;
   }).join("");
-  return `<div class="view-header"><div><p class="eyebrow">Tu progreso</p><h1 class="view-title">Historial</h1><div class="subtle">Toca un día con registro para revisar tu sesión.</div></div></div><section class="history-calendar" aria-labelledby="calendar-title"><div class="calendar-heading"><button type="button" class="secondary-button calendar-arrow" data-action="history-prev" aria-label="Mes anterior">‹</button><h2 id="calendar-title">${escapeHtml(label)}</h2><button type="button" class="secondary-button calendar-arrow" data-action="history-next" aria-label="Mes siguiente">›</button></div><div class="calendar-tools"><label for="history-month">Ir al mes</label><input id="history-month" class="date-input" type="month" min="1900-01" max="9999-12" value="${historyMonth}" /><button type="button" class="text-button" data-action="history-current">Este mes</button></div><div class="calendar-weekdays" aria-hidden="true">${["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map(day => `<span>${day}</span>`).join("")}</div><div class="calendar-days">${cells}</div><div class="calendar-legend"><span class="calendar-dot" aria-hidden="true"></span> Día con registro <span class="calendar-total">${count} ${count === 1 ? "día este mes" : "días este mes"}</span></div>${count ? "" : '<p class="calendar-empty">No hay entrenamientos registrados en este mes.</p>'}</section><p class="note">Un día cuenta cuando anotas peso, repeticiones, minutos, velocidad o distancia, o marcas una serie o ejercicio como hecho. Los días que solo abres o preparas no aparecen como trabajados.</p>`;
+  return `<div class="view-header"><div><p class="eyebrow">Tu progreso</p><h1 class="view-title">Historial</h1><div class="subtle">Tocá una fecha para ver el resumen o eliminar su registro.</div></div></div><section class="history-calendar" aria-labelledby="calendar-title"><div class="calendar-heading"><button type="button" class="secondary-button calendar-arrow" data-action="history-prev" aria-label="Mes anterior">‹</button><h2 id="calendar-title">${escapeHtml(label)}</h2><button type="button" class="secondary-button calendar-arrow" data-action="history-next" aria-label="Mes siguiente">›</button></div><div class="calendar-tools"><label for="history-month">Ir al mes</label><input id="history-month" class="date-input" type="month" min="1900-01" max="9999-12" value="${historyMonth}" /><button type="button" class="text-button" data-action="history-current">Este mes</button></div><div class="calendar-weekdays" aria-hidden="true">${["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map(day => `<span>${day}</span>`).join("")}</div><div class="calendar-days">${cells}</div><div class="calendar-legend"><span class="calendar-dot" aria-hidden="true"></span> Con actividad <span class="calendar-dot draft-dot" aria-hidden="true"></span> Sin actividad <span class="calendar-total">${count} ${count === 1 ? "día este mes" : "días este mes"}</span></div>${count ? "" : '<p class="calendar-empty">No hay entrenamientos registrados en este mes.</p>'}</section><p class="note">Los valores sugeridos y los días que solo abrís no cuentan como entrenamiento. Las fechas sin actividad se pueden abrir para eliminar su registro.</p>`;
 }
 function openDeleteSession(date) {
-  if (!hasSessionActivity(state.sessions[date])) return;
-  openOverlay(`<h2 id="sheet-title">Eliminar sesión</h2><p>¿Quieres eliminar la sesión del <strong>${escapeHtml(formatDate(date))}</strong>? Se borrarán sus series, pesos, repeticiones y marcas de realizado. Tus rutinas y las demás sesiones se conservarán.</p><p>Esta acción no se puede deshacer. Puedes exportar un respaldo antes de eliminarla.</p><div class="sheet-buttons"><button type="button" class="secondary-button" data-close-overlay>Cancelar</button><button type="button" class="danger-button" data-action="confirm-delete-session" data-date="${date}">Sí, eliminar sesión</button></div>`);
+  if (!Object.hasOwn(state.sessions, date)) return;
+  openOverlay(`<h2 id="sheet-title">Eliminar registro</h2><p>¿Querés eliminar el registro del <strong>${escapeHtml(formatDate(date))}</strong>? Se borrarán sus series, pesos, repeticiones y marcas de realizado. Tus rutinas y las demás sesiones se conservarán.</p><p>Esta acción no se puede deshacer. Puedes exportar un respaldo antes de eliminarla.</p><div class="sheet-buttons"><button type="button" class="secondary-button" data-close-overlay>Cancelar</button><button type="button" class="danger-button" data-action="confirm-delete-session" data-date="${date}">Sí, eliminar registro</button></div>`);
 }
 async function setSessionFinished(date, finished) {
   const session = state.sessions[date];
@@ -729,7 +767,7 @@ async function deleteSession(date) {
   expandedId = "";
   tab = "history";
   closeOverlay(); render(); window.scrollTo(0, 0);
-  showToast("Sesión eliminada");
+  showToast("Registro eliminado");
   return true;
 }
 function openOverlay(html, imagePreview = false) {
@@ -893,8 +931,7 @@ document.addEventListener("click", async event => {
   if (action === "history-prev" || action === "history-next") { shiftHistoryMonth(action === "history-prev" ? -1 : 1); render(); return; }
   if (action === "history-current") { historyMonth = todayISO().slice(0, 7); render(); return; }
   if (action === "open-date") {
-    if (!hasSessionActivity(state.sessions[button.dataset.date])) return;
-    activeDate = button.dataset.date; tab = "today"; expandedId = state.sessions[activeDate].selected[0] || ""; render(); window.scrollTo(0, 0); return;
+    openHistorySummary(button.dataset.date); return;
   }
   const session = ensureSession();
   if (action === "go-catalog") { tab = "catalog"; render(); window.scrollTo(0, 0); }
@@ -950,6 +987,7 @@ document.addEventListener("input", event => {
   const set = ensureSession().sets[event.target.dataset.ex]?.find(item => item.id === event.target.dataset.setId);
   if (set) {
     set[field] = event.target.value;
+    delete set.prefilled;
     if (getExercise(event.target.dataset.ex)?.group !== "Cardio" && (field === "kg" || field === "reps") && updateAutoDone(set)) {
       delete ensureSession().completed[event.target.dataset.ex];
       refreshSetProgress(event.target);
@@ -981,6 +1019,7 @@ document.addEventListener("change", event => {
     const cardio = getExercise(event.target.dataset.ex)?.group === "Cardio";
     if (event.target.checked && cardio && !validCardioSet(getExercise(event.target.dataset.ex), set)) { event.target.checked = false; showToast("Anota los minutos primero"); return; }
     if (event.target.checked && !cardio && (!Number.isInteger(Number(set.reps)) || Number(set.reps) <= 0)) { event.target.checked = false; showToast("Anota las repeticiones primero"); return; }
+    delete set.prefilled;
     set.done = event.target.checked;
     set.autoDone = false;
     set.manualDone = true;
