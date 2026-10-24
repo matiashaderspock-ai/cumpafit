@@ -381,7 +381,7 @@ function lastPerformance(id, beforeDate = activeDate) {
       }
       continue;
     }
-    const done = sets.filter(set => set.done && Number(set.reps) > 0);
+    const done = sets.filter(set => set.done && !set.dropSet && Number(set.reps) > 0);
     if (done.length) {
       const best = done.at(-1);
       return `${date.slice(8, 10)}/${date.slice(5, 7)} · ${best.reps} reps${best.kg !== "" ? ` · ${best.kg} kg` : " · peso corporal"}`;
@@ -399,6 +399,12 @@ function recordedUses(id, beforeDate = `${todayISO()}~`) {
     });
     return { date, sets, maxKg: cardio || !sets.length ? null : Math.max(...sets.map(set => decimalNumber(set.kg))) };
   }).filter(use => use.sets.length);
+}
+function lastRegularSet(id, beforeDate = activeDate) {
+  for (const use of recordedUses(id, beforeDate).reverse()) {
+    const set = use.sets.filter(set => !set.dropSet).at(-1);
+    if (set) return set;
+  }
 }
 const shortUseDate = date => `${date.slice(8, 10)}/${date.slice(5, 7)}`;
 const formatMeasure = value => new Intl.NumberFormat("es-BO", { maximumFractionDigits: 2 }).format(decimalNumber(value));
@@ -445,7 +451,7 @@ function lastUseContent(id, beforeDate, compact = false) {
   const use = recordedUses(id, beforeDate).at(-1);
   if (!use) return { label: "Último uso", body: `<span class="performance-empty">${compact ? "Sin registros anteriores." : "No hay series completadas registradas para este ejercicio."}</span>` };
   const cardio = getExercise(id)?.group === "Cardio";
-  const summary = use.sets.map((set, i) => `<span class="last-use-set"><span class="previous-set-number">${i + 1}.</span> ${cardio ? `${formatMeasure(set.minutes)} min · ${formatMeasure(cardioValue(getExercise(id), set))} ${cardioMetric(getExercise(id)).unit}` : `${formatMeasure(set.kg)} kg × ${escapeHtml(set.reps)} reps`}</span>`).join("");
+  const summary = use.sets.map((set, i) => `<span class="last-use-set"><span class="previous-set-number">${i + 1}.${set.dropSet ? ' <small class="drop-set-label" title="Drop Set">DS</small>' : ""}</span> ${cardio ? `${formatMeasure(set.minutes)} min · ${formatMeasure(cardioValue(getExercise(id), set))} ${cardioMetric(getExercise(id)).unit}` : `${formatMeasure(set.kg)} kg × ${escapeHtml(set.reps)} reps`}</span>`).join("");
   return { label: `Último uso · ${shortUseDate(use.date)}/${use.date.slice(0, 4)}`, body: `<span class="last-use-sets">${summary}</span>${cardio ? maximumSummaryMarkup(id) : ""}` };
 }
 function lastUseMarkup(id, beforeDate) {
@@ -561,7 +567,7 @@ function renderSetFields(ex, set, index) {
   const fields = ex.group === "Cardio"
     ? [["minutes", "Minutos", set.minutes], [cardioMetric(ex).field, cardioMetric(ex).label, cardioValue(ex, set)]]
     : [["kg", "Peso kg", set.kg], ["reps", "Repeticiones", set.reps]];
-  return fields.map(([field, label, value]) => `<input class="set-input" type="${field === "reps" ? "number" : "text"}" ${field === "reps" ? 'min="0"' : ""} inputmode="${field === "reps" ? "numeric" : "decimal"}" placeholder="—" value="${escapeHtml(value)}" data-set-field="${field}" data-ex="${ex.id}" data-set-id="${set.id}" aria-label="${label} serie ${index + 1} de ${escapeHtml(ex.name)}" />`).join("");
+  return fields.map(([field, label, value]) => `<input class="set-input" type="${field === "reps" ? "number" : "text"}" ${field === "reps" ? 'min="0"' : ""} inputmode="${field === "reps" ? "numeric" : "decimal"}" placeholder="—" value="${escapeHtml(value)}" data-set-field="${field}" data-ex="${ex.id}" data-set-id="${set.id}" aria-label="${label} serie ${index + 1}${set.dropSet ? " Drop Set" : ""} de ${escapeHtml(ex.name)}" />`).join("");
 }
 function refreshSetProgress(input) {
   // Refresh progress without replacing inputs or interrupting the phone keyboard.
@@ -591,7 +597,7 @@ function renderSessionExercise(ex, session, index) {
   return `<article class="session-card${done ? " done" : ""}">
     <div class="session-main">${imageMarkup(ex)}<h3 class="session-heading" title="${escapeHtml(`${pair} · ${ex.group} · ${ex.name}`)}"><span class="exercise-kicker">${pair} · ${escapeHtml(ex.group)} · </span><span class="session-exercise-name" lang="en">${escapeHtml(ex.name)}</span></h3><button type="button" class="complete-button${done ? " done" : ""}" data-action="toggle-complete" data-id="${ex.id}" aria-label="${done ? "Marcar pendiente" : "Marcar completado"}: ${escapeHtml(ex.name)}" aria-pressed="${done}"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></button></div>
     ${sessionPerformanceMarkup(ex.id)}<button type="button" class="expand-button" data-action="expand" data-id="${ex.id}" aria-expanded="${isOpen}"><span>${sets.filter(set => set.done).length} de ${sets.length} series hechas</span><svg viewBox="0 0 24 24"><path d="m5 9 7 7 7-7"/></svg></button>
-    ${isOpen ? `<div class="sets-panel"><div class="set-header"><span>Serie</span><span>${ex.group === "Cardio" ? "Minutos" : "Peso kg"}</span><span>${ex.group === "Cardio" ? cardioMetric(ex).heading : "Reps"}</span><span>Hecha</span><span></span></div>${sets.map((set, i) => `<div class="set-row"><span class="set-index">${String(i + 1).padStart(2, "0")}</span>${renderSetFields(ex, set, i)}<input class="set-check" type="checkbox" ${set.done ? "checked" : ""} data-set-done data-ex="${ex.id}" data-set-id="${set.id}" aria-label="Serie ${i + 1} hecha" /><button type="button" class="remove-set" data-action="remove-set" data-id="${ex.id}" data-set-id="${set.id}" aria-label="Quitar serie ${i + 1}"><svg viewBox="0 0 24 24"><path d="M5 7h14m-12 0 1 13h8l1-13M9 7V4h6v3"/></svg></button></div>`).join("")}<div class="panel-actions"><button type="button" class="add-set" data-action="add-set" data-id="${ex.id}" aria-label="Añadir serie a ${escapeHtml(ex.name)}" title="Añadir serie"><span aria-hidden="true">+</span></button><button type="button" class="remove-from-day" data-action="remove-exercise" data-id="${ex.id}">Quitar de hoy</button></div></div>` : ""}</article>`;
+    ${isOpen ? `<div class="sets-panel"><div class="set-header"><span>Serie</span><span>${ex.group === "Cardio" ? "Minutos" : "Peso kg"}</span><span>${ex.group === "Cardio" ? cardioMetric(ex).heading : "Reps"}</span><span>Hecha</span><span></span></div>${sets.map((set, i) => `<div class="set-row"><span class="set-index">${String(i + 1).padStart(2, "0")}${set.dropSet ? '<small class="drop-set-label" title="Drop Set">DS</small>' : ""}</span>${renderSetFields(ex, set, i)}<input class="set-check" type="checkbox" ${set.done ? "checked" : ""} data-set-done data-ex="${ex.id}" data-set-id="${set.id}" aria-label="Serie ${i + 1}${set.dropSet ? " Drop Set" : ""} hecha" /><button type="button" class="remove-set" data-action="remove-set" data-id="${ex.id}" data-set-id="${set.id}" aria-label="Quitar serie ${i + 1}${set.dropSet ? " Drop Set" : ""}"><svg viewBox="0 0 24 24"><path d="M5 7h14m-12 0 1 13h8l1-13M9 7V4h6v3"/></svg></button></div>`).join("")}<div class="panel-actions"><div class="add-set-actions"><button type="button" class="add-set" data-action="add-set" data-id="${ex.id}" aria-label="Añadir serie a ${escapeHtml(ex.name)}" title="Añadir serie"><span aria-hidden="true">+</span></button>${ex.group === "Cardio" ? "" : `<button type="button" class="add-set add-drop-set" data-action="add-drop-set" data-id="${ex.id}" aria-label="Añadir Drop Set a ${escapeHtml(ex.name)}" title="Añadir Drop Set"><span aria-hidden="true">+ DS</span></button>`}</div><button type="button" class="remove-from-day" data-action="remove-exercise" data-id="${ex.id}">Quitar de hoy</button></div></div>` : ""}</article>`;
 }
 function renderCatalog() {
   ensureSession();
@@ -701,7 +707,7 @@ function renderHistorySummary(date) {
   const summary = sessionSummaryData(date);
   if (!summary) return "";
   return `<h2 id="sheet-title">Resumen del entrenamiento</h2><p class="history-summary-date">${escapeHtml(formatDate(date))}${summary.finished ? " · Sesión terminada" : ""}</p>
-    ${summary.exercises.length ? `<div class="history-summary-totals"><span><strong>${summary.exercises.length}</strong> ${summary.exercises.length === 1 ? "ejercicio registrado" : "ejercicios registrados"}</span><span><strong>${summary.completedSets}</strong> ${summary.completedSets === 1 ? "serie hecha" : "series hechas"}</span></div>${summary.completedSets ? "" : '<p class="history-summary-notice">No hay series marcadas como realizadas. Estos datos quedaron registrados sin marcar.</p>'}<div class="history-summary-list">${summary.exercises.map(item => `<article class="history-summary-exercise"><h3>${escapeHtml(item.exercise?.name || "Ejercicio no disponible")}</h3>${item.exercise ? `<span class="history-summary-group">${escapeHtml(item.exercise.group)}</span>` : ""}${item.sets.length ? `<ul>${item.sets.map(row => `<li><span class="history-summary-index">${row.number}.</span><span>${escapeHtml(summarySetText(item.exercise, row.set))}</span><span class="history-summary-status${row.set.done ? " is-done" : ""}">${row.set.done ? "✓ Hecha" : "Sin marcar"}</span></li>`).join("")}</ul>` : '<p>Marcado como realizado, sin series detalladas.</p>'}</article>`).join("")}</div>` : '<div class="history-summary-empty"><strong>Sin actividad registrada</strong><p>Esta fecha solo tiene una sesión abierta o preparada. No cuenta como entrenamiento y podés eliminarla.</p></div>'}
+    ${summary.exercises.length ? `<div class="history-summary-totals"><span><strong>${summary.exercises.length}</strong> ${summary.exercises.length === 1 ? "ejercicio registrado" : "ejercicios registrados"}</span><span><strong>${summary.completedSets}</strong> ${summary.completedSets === 1 ? "serie hecha" : "series hechas"}</span></div>${summary.completedSets ? "" : '<p class="history-summary-notice">No hay series marcadas como realizadas. Estos datos quedaron registrados sin marcar.</p>'}<div class="history-summary-list">${summary.exercises.map(item => `<article class="history-summary-exercise"><h3>${escapeHtml(item.exercise?.name || "Ejercicio no disponible")}</h3>${item.exercise ? `<span class="history-summary-group">${escapeHtml(item.exercise.group)}</span>` : ""}${item.sets.length ? `<ul>${item.sets.map(row => `<li><span class="history-summary-index">${row.number}.${row.set.dropSet ? ' <small class="drop-set-label" title="Drop Set">DS</small>' : ""}</span><span>${escapeHtml(summarySetText(item.exercise, row.set))}</span><span class="history-summary-status${row.set.done ? " is-done" : ""}">${row.set.done ? "✓ Hecha" : "Sin marcar"}</span></li>`).join("")}</ul>` : '<p>Marcado como realizado, sin series detalladas.</p>'}</article>`).join("")}</div>` : '<div class="history-summary-empty"><strong>Sin actividad registrada</strong><p>Esta fecha solo tiene una sesión abierta o preparada. No cuenta como entrenamiento y podés eliminarla.</p></div>'}
     <div class="sheet-buttons history-summary-actions"><button type="button" class="secondary-button" data-close-overlay>Cerrar</button><button type="button" class="delete-session-button" data-action="delete-session" data-date="${escapeHtml(date)}">Eliminar registro</button></div>`;
 }
 function openHistorySummary(date) {
@@ -830,8 +836,8 @@ function addToSession(id) {
   session.selected.push(id);
   if (!session.sets[id]) {
     const ex = getExercise(id);
-    // Reuse the last completed strength set, without inheriting completion flags.
-    const previous = ex?.group === "Cardio" ? undefined : recordedUses(id, activeDate).at(-1)?.sets.at(-1);
+    // Drop Sets remain in history but never seed a new normal strength set.
+    const previous = ex?.group === "Cardio" ? undefined : lastRegularSet(id, activeDate);
     session.sets[id] = Array.from({ length: 3 }, () => newSetFor(ex, previous));
   }
   expandedId = id;
@@ -951,10 +957,15 @@ document.addEventListener("click", async event => {
   if (action === "edit-exercise") openExerciseForm(id);
   if (action === "expand") { expandedId = expandedId === id ? "" : id; render(); }
   if (action === "toggle-complete") { session.completed[id] = !isExerciseComplete(session, id); persist(); render(); }
-  if (action === "add-set") {
+  if (action === "add-set" || action === "add-drop-set") {
+    const ex = getExercise(id);
+    if (!ex || (action === "add-drop-set" && ex.group === "Cardio")) return;
     const sets = session.sets[id] ||= [];
-    const last = sets.at(-1);
-    sets.push(newSetFor(getExercise(id), last));
+    const dropSet = action === "add-drop-set";
+    const previous = dropSet ? sets.at(-1) : sets.filter(set => !set.dropSet).at(-1) || lastRegularSet(id);
+    const set = newSetFor(ex, previous);
+    if (dropSet) set.dropSet = true;
+    sets.push(set);
     delete session.completed[id];
     persist(); render();
   }
