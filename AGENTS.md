@@ -33,9 +33,10 @@ These instructions apply to Codex, ChatGPT Work, Grok Bot, and other contributor
 - Run `node --check app.js`, `node --check sw.js`, and `node --test tests/*.test.cjs` for application changes, plus checks appropriate to the changed behavior.
 - Review the affected UI and persistence behavior for functional changes.
 - For changed cached resources, bump the service-worker `CACHE` version. Update the relevant asset query versions in both `index.html` and the `FILES` list in `sw.js`; keep them consistent and include new offline resources.
+- Exercise images use the separate, stable `cumpafit-images-v1` cache and content revisions in `IMAGE_FILES`. After changing images or the illustration catalog, run `node scripts/update-image-manifest.cjs`. Validate with `node scripts/update-image-manifest.cjs --check`; do not bump or delete the image cache for ordinary app updates.
 - Retain `.nojekyll` and relative paths for the GitHub Pages subdirectory.
 - Verify that the Pages workflow succeeds for the released commit and that the production files contain the change.
-- The app checks its service worker on startup and uses network-first requests. A running screen may retain old code until reopened; offline devices cannot receive a new release. Ask for an on-device close/reopen check when needed, and preserve any active workout.
+- The app checks its service worker on startup, uses network-first requests for application code, and serves saved exercise images first. A running screen may retain old code until reopened; offline devices cannot receive a new release. Ask for an on-device close/reopen check when needed, and preserve any active workout.
 
 ## Codex PR failure reporting
 

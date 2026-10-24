@@ -111,3 +111,6 @@
 .history-summary-exercise-copy{flex:1;min-width:0}
 .history-summary-image{width:56px;height:56px;flex:0 0 56px;object-fit:contain;border-radius:8px}
 .history-summary-image.image-pending span{display:none}
+
+.offline-images-status{max-width:990px;margin:-24px auto 20px;padding:0 20px;font-size:11px;line-height:1.5;color:#7b858e}
+.offline-images-status[data-state="ready"]{color:#35704f}
