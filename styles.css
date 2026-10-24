@@ -104,3 +104,10 @@
 .drop-set-label{font-size:9px;font-weight:750;color:#ad6336;line-height:1.2}
 .session-card .set-index .drop-set-label{display:block}
 .history-summary-index .drop-set-label{display:block}
+
+.session-date{margin:22px 0 8px;font-size:13px;font-weight:650;color:#65717c}
+.session-date+.session-finish{margin-top:0}
+.history-summary-exercise-heading{display:flex;align-items:center;gap:10px}
+.history-summary-exercise-copy{flex:1;min-width:0}
+.history-summary-image{width:56px;height:56px;flex:0 0 56px;object-fit:contain;border-radius:8px}
+.history-summary-image.image-pending span{display:none}
