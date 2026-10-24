@@ -29,8 +29,8 @@ function app() {
   async function fire(type, target) {
     for (const fn of listeners.get(`${type}:false`) || []) await fn({ target });
   }
-  return { run, fire, async click(action, date) {
-    const button = { dataset: { action, date }, disabled: false };
+  return { run, fire, async click(action, date, exerciseId) {
+    const button = { dataset: { action, date, id: exerciseId }, disabled: false };
     await fire('click', { closest: selector => selector === '[data-action]' ? button : null });
     return button;
   } };
@@ -145,4 +145,63 @@ test('summary retains archived exercises, bodyweight, legacy cardio units and ma
   assert.match(summary, /Marcado como realizado, sin series detalladas/);
   assert.equal(a.run('sessionSummaryData("2026-10-05").exercises.length'), 3);
   assert.equal(a.run('sessionSummaryData("2026-10-05").completedSets'), 2);
+});
+
+
+test('adding normal and Drop Set rows keeps their types and copies the right reference', async () => {
+  const a = app();
+  a.run(`addToSession(id); ensureSession().sets[id] = [{id:'normal', kg:'30', reps:'8', done:true}];`);
+  await a.click('add-drop-set', undefined, a.run('id'));
+  assert.equal(a.run('ensureSession().sets[id][1].dropSet'), true);
+  assert.equal(a.run('ensureSession().sets[id][1].kg'), '30');
+  assert.equal(a.run('ensureSession().sets[id][1].done'), false);
+  a.run(`Object.assign(ensureSession().sets[id][1], {kg:'20', reps:'12', done:true});`);
+  await a.click('add-drop-set', undefined, a.run('id'));
+  assert.equal(a.run('ensureSession().sets[id][2].dropSet'), true);
+  assert.equal(a.run('ensureSession().sets[id][2].kg'), '20');
+  await a.click('add-set', undefined, a.run('id'));
+  assert.equal(a.run('ensureSession().sets[id][3].dropSet'), undefined);
+  assert.equal(a.run('ensureSession().sets[id][3].kg'), '30');
+  assert.equal(a.run('ensureSession().sets[id][3].reps'), '8');
+  assert.equal(a.run('saved.sessions[activeDate].sets[id][1].dropSet'), true);
+});
+
+test('new sessions skip trailing Drop Sets and days containing only Drop Sets', () => {
+  const a = app();
+  a.run(`const old = ensureSession('2026-10-01'); old.sets[id] = [
+    {id:'normal', kg:'30', reps:'8', done:true},
+    {id:'drop', kg:'20', reps:'12', done:true, dropSet:true}];
+    const newer = ensureSession('2026-10-05'); newer.sets[id] = [
+    {id:'drop-only', kg:'15', reps:'15', done:true, dropSet:true},
+    {id:'pending', kg:'40', reps:'6', done:false}];
+    addToSession(id);`);
+  assert.equal(a.run('ensureSession().sets[id].every(set => set.kg === "30" && set.reps === "8" && !set.done && !set.dropSet)'), true);
+  assert.match(a.run('lastPerformance(id)'), /30 kg/);
+  assert.equal(a.run('state.sessions["2026-10-05"].sets[id][0].dropSet'), true);
+});
+
+test('history containing only Drop Sets leaves normal prefill empty', () => {
+  const a = app();
+  a.run(`ensureSession('2026-10-01').sets[id] = [{id:'drop',kg:'20',reps:'12',done:true,dropSet:true}]; addToSession(id);`);
+  assert.equal(a.run('ensureSession().sets[id].every(set => set.kg === "" && set.reps === "" && !set.dropSet)'), true);
+});
+
+test('Drop Sets remain labeled in session, last use and summary after backup import', async () => {
+  const a = app();
+  a.run(`const old = ensureSession('2026-10-01'); old.selected = [id];
+    old.sets[id] = [{id:'drop',kg:'20',reps:'12',done:true,dropSet:true}];
+    const backup = JSON.stringify(state); confirm = () => true;
+    writeState = async snapshot => { saved = structuredClone(snapshot); };`);
+  await a.run('importBackup({text: async () => backup})');
+  assert.equal(a.run('saved.sessions["2026-10-01"].sets[id][0].dropSet'), true);
+  assert.match(a.run('lastUseContent(id, activeDate).body'), /title="Drop Set">DS/);
+  assert.match(a.run('renderHistorySummary("2026-10-01")'), /title="Drop Set">DS/);
+  assert.equal(a.run('sessionSummaryData("2026-10-01").completedSets'), 1);
+  a.run(`activeDate = '2026-10-01'; expandedId = id;`);
+  const card = a.run('renderSessionExercise(getExercise(id), ensureSession(), 0)');
+  assert.match(card, /title="Drop Set">DS/);
+  assert.match(card, /data-action="add-drop-set"/);
+  assert.match(card, /aria-label="Serie 1 Drop Set hecha"/);
+  const cardio = a.run(`renderSessionExercise(STARTER_EXERCISES.find(ex => ex.group === 'Cardio'), ensureSession(), 1)`);
+  assert.doesNotMatch(cardio, /data-action="add-drop-set"/);
 });
