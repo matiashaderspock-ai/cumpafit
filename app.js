@@ -328,9 +328,11 @@ function validCardioSet(ex, set) {
   return Number.isFinite(minutes) && minutes > 0 && Number.isFinite(value) && value >= 0;
 }
 function newSetFor(ex, previous = {}) {
-  return ex?.group === "Cardio"
+  const set = ex?.group === "Cardio"
     ? { id: uid(), minutes: previous.minutes || "", [cardioMetric(ex).field]: cardioValue(ex, previous) || "", done: false }
     : { id: uid(), kg: previous.kg || "", reps: previous.reps || "", done: false, autoDone: false };
+  if ([set.kg, set.reps, set.minutes, set.distanceKm, set.speedKmh].some(value => String(value ?? "").trim() !== "")) set.prefilled = true;
+  return set;
 }
 function updateAutoDone(set) {
   // A deliberate checkbox choice survives later edits and reopening the app.
@@ -379,7 +381,7 @@ function lastPerformance(id, beforeDate = activeDate) {
       }
       continue;
     }
-    const done = sets.filter(set => set.done && Number(set.reps) > 0);
+    const done = sets.filter(set => set.done && !set.dropSet && Number(set.reps) > 0);
     if (done.length) {
       const best = done.at(-1);
       return `${date.slice(8, 10)}/${date.slice(5, 7)} · ${best.reps} reps${best.kg !== "" ? ` · ${best.kg} kg` : " · peso corporal"}`;
@@ -397,6 +399,12 @@ function recordedUses(id, beforeDate = `${todayISO()}~`) {
     });
     return { date, sets, maxKg: cardio || !sets.length ? null : Math.max(...sets.map(set => decimalNumber(set.kg))) };
   }).filter(use => use.sets.length);
+}
+function lastRegularSet(id, beforeDate = activeDate) {
+  for (const use of recordedUses(id, beforeDate).reverse()) {
+    const set = use.sets.filter(set => !set.dropSet).at(-1);
+    if (set) return set;
+  }
 }
 const shortUseDate = date => `${date.slice(8, 10)}/${date.slice(5, 7)}`;
 const formatMeasure = value => new Intl.NumberFormat("es-BO", { maximumFractionDigits: 2 }).format(decimalNumber(value));
@@ -443,7 +451,7 @@ function lastUseContent(id, beforeDate, compact = false) {
   const use = recordedUses(id, beforeDate).at(-1);
   if (!use) return { label: "Último uso", body: `<span class="performance-empty">${compact ? "Sin registros anteriores." : "No hay series completadas registradas para este ejercicio."}</span>` };
   const cardio = getExercise(id)?.group === "Cardio";
-  const summary = use.sets.map((set, i) => `<span class="last-use-set"><span class="previous-set-number">${i + 1}.</span> ${cardio ? `${formatMeasure(set.minutes)} min · ${formatMeasure(cardioValue(getExercise(id), set))} ${cardioMetric(getExercise(id)).unit}` : `${formatMeasure(set.kg)} kg × ${escapeHtml(set.reps)} reps`}</span>`).join("");
+  const summary = use.sets.map((set, i) => `<span class="last-use-set"><span class="previous-set-number">${i + 1}.${set.dropSet ? ' <small class="drop-set-label" title="Drop Set">DS</small>' : ""}</span> ${cardio ? `${formatMeasure(set.minutes)} min · ${formatMeasure(cardioValue(getExercise(id), set))} ${cardioMetric(getExercise(id)).unit}` : `${formatMeasure(set.kg)} kg × ${escapeHtml(set.reps)} reps`}</span>`).join("");
   return { label: `Último uso · ${shortUseDate(use.date)}/${use.date.slice(0, 4)}`, body: `<span class="last-use-sets">${summary}</span>${cardio ? maximumSummaryMarkup(id) : ""}` };
 }
 function lastUseMarkup(id, beforeDate) {
@@ -559,7 +567,7 @@ function renderSetFields(ex, set, index) {
   const fields = ex.group === "Cardio"
     ? [["minutes", "Minutos", set.minutes], [cardioMetric(ex).field, cardioMetric(ex).label, cardioValue(ex, set)]]
     : [["kg", "Peso kg", set.kg], ["reps", "Repeticiones", set.reps]];
-  return fields.map(([field, label, value]) => `<input class="set-input" type="${field === "reps" ? "number" : "text"}" ${field === "reps" ? 'min="0"' : ""} inputmode="${field === "reps" ? "numeric" : "decimal"}" placeholder="—" value="${escapeHtml(value)}" data-set-field="${field}" data-ex="${ex.id}" data-set-id="${set.id}" aria-label="${label} serie ${index + 1} de ${escapeHtml(ex.name)}" />`).join("");
+  return fields.map(([field, label, value]) => `<input class="set-input" type="${field === "reps" ? "number" : "text"}" ${field === "reps" ? 'min="0"' : ""} inputmode="${field === "reps" ? "numeric" : "decimal"}" placeholder="—" value="${escapeHtml(value)}" data-set-field="${field}" data-ex="${ex.id}" data-set-id="${set.id}" aria-label="${label} serie ${index + 1}${set.dropSet ? " Drop Set" : ""} de ${escapeHtml(ex.name)}" />`).join("");
 }
 function refreshSetProgress(input) {
   // Refresh progress without replacing inputs or interrupting the phone keyboard.
@@ -589,7 +597,7 @@ function renderSessionExercise(ex, session, index) {
   return `<article class="session-card${done ? " done" : ""}">
     <div class="session-main">${imageMarkup(ex)}<h3 class="session-heading" title="${escapeHtml(`${pair} · ${ex.group} · ${ex.name}`)}"><span class="exercise-kicker">${pair} · ${escapeHtml(ex.group)} · </span><span class="session-exercise-name" lang="en">${escapeHtml(ex.name)}</span></h3><button type="button" class="complete-button${done ? " done" : ""}" data-action="toggle-complete" data-id="${ex.id}" aria-label="${done ? "Marcar pendiente" : "Marcar completado"}: ${escapeHtml(ex.name)}" aria-pressed="${done}"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></button></div>
     ${sessionPerformanceMarkup(ex.id)}<button type="button" class="expand-button" data-action="expand" data-id="${ex.id}" aria-expanded="${isOpen}"><span>${sets.filter(set => set.done).length} de ${sets.length} series hechas</span><svg viewBox="0 0 24 24"><path d="m5 9 7 7 7-7"/></svg></button>
-    ${isOpen ? `<div class="sets-panel"><div class="set-header"><span>Serie</span><span>${ex.group === "Cardio" ? "Minutos" : "Peso kg"}</span><span>${ex.group === "Cardio" ? cardioMetric(ex).heading : "Reps"}</span><span>Hecha</span><span></span></div>${sets.map((set, i) => `<div class="set-row"><span class="set-index">${String(i + 1).padStart(2, "0")}</span>${renderSetFields(ex, set, i)}<input class="set-check" type="checkbox" ${set.done ? "checked" : ""} data-set-done data-ex="${ex.id}" data-set-id="${set.id}" aria-label="Serie ${i + 1} hecha" /><button type="button" class="remove-set" data-action="remove-set" data-id="${ex.id}" data-set-id="${set.id}" aria-label="Quitar serie ${i + 1}"><svg viewBox="0 0 24 24"><path d="M5 7h14m-12 0 1 13h8l1-13M9 7V4h6v3"/></svg></button></div>`).join("")}<div class="panel-actions"><button type="button" class="add-set" data-action="add-set" data-id="${ex.id}" aria-label="Añadir serie a ${escapeHtml(ex.name)}" title="Añadir serie"><span aria-hidden="true">+</span></button><button type="button" class="remove-from-day" data-action="remove-exercise" data-id="${ex.id}">Quitar de hoy</button></div></div>` : ""}</article>`;
+    ${isOpen ? `<div class="sets-panel"><div class="set-header"><span>Serie</span><span>${ex.group === "Cardio" ? "Minutos" : "Peso kg"}</span><span>${ex.group === "Cardio" ? cardioMetric(ex).heading : "Reps"}</span><span>Hecha</span><span></span></div>${sets.map((set, i) => `<div class="set-row"><span class="set-index">${String(i + 1).padStart(2, "0")}${set.dropSet ? '<small class="drop-set-label" title="Drop Set">DS</small>' : ""}</span>${renderSetFields(ex, set, i)}<input class="set-check" type="checkbox" ${set.done ? "checked" : ""} data-set-done data-ex="${ex.id}" data-set-id="${set.id}" aria-label="Serie ${i + 1}${set.dropSet ? " Drop Set" : ""} hecha" /><button type="button" class="remove-set" data-action="remove-set" data-id="${ex.id}" data-set-id="${set.id}" aria-label="Quitar serie ${i + 1}${set.dropSet ? " Drop Set" : ""}"><svg viewBox="0 0 24 24"><path d="M5 7h14m-12 0 1 13h8l1-13M9 7V4h6v3"/></svg></button></div>`).join("")}<div class="panel-actions"><div class="add-set-actions"><button type="button" class="add-set" data-action="add-set" data-id="${ex.id}" aria-label="Añadir serie a ${escapeHtml(ex.name)}" title="Añadir serie"><span aria-hidden="true">+</span></button>${ex.group === "Cardio" ? "" : `<button type="button" class="add-set add-drop-set" data-action="add-drop-set" data-id="${ex.id}" aria-label="Añadir Drop Set a ${escapeHtml(ex.name)}" title="Añadir Drop Set"><span aria-hidden="true">+ DS</span></button>`}</div><button type="button" class="remove-from-day" data-action="remove-exercise" data-id="${ex.id}">Quitar de hoy</button></div></div>` : ""}</article>`;
 }
 function renderCatalog() {
   ensureSession();
@@ -665,11 +673,46 @@ async function addRoutineToSession(id) {
   render();
   showToast(added.length ? `${added.length} ${added.length === 1 ? "ejercicio añadido" : "ejercicios añadidos"} a la sesión` : exercises.length ? "La rutina ya está en la sesión" : "Esta rutina no tiene ejercicios disponibles");
 }
+function hasRecordedSet(set) {
+  if (set.done === true) return true;
+  if (set.prefilled === true) return false;
+  return [set.kg, set.reps, set.minutes, set.distanceKm, set.speedKmh].some(value => Number.isFinite(decimalNumber(value)) && decimalNumber(value) > 0);
+}
 function hasSessionActivity(session) {
   if (!session) return false;
   if (Object.values(session.completed || {}).some(value => value === true)) return true;
-  return Object.values(session.sets || {}).some(sets => sets.some(set => set.done === true ||
-    [set.kg, set.reps, set.minutes, set.distanceKm, set.speedKmh].some(value => Number.isFinite(decimalNumber(value)) && decimalNumber(value) > 0)));
+  return Object.values(session.sets || {}).some(sets => sets.some(hasRecordedSet));
+}
+function sessionSummaryData(date) {
+  const session = state.sessions[date];
+  if (!session) return null;
+  const ids = [...new Set([...(session.selected || []), ...Object.keys(session.sets || {}), ...Object.keys(session.completed || {})])];
+  const exercises = ids.map(id => {
+    const sets = (session.sets?.[id] || []).map((set, index) => ({ set, number: index + 1 })).filter(row => hasRecordedSet(row.set));
+    return { exercise: getExercise(id), sets, markedDone: session.completed?.[id] === true };
+  }).filter(item => item.sets.length || item.markedDone);
+  return { exercises, completedSets: exercises.reduce((count, item) => count + item.sets.filter(row => row.set.done === true).length, 0), finished: Boolean(session.finishedAt) };
+}
+function summarySetText(exercise, set) {
+  const measure = value => String(value ?? "").trim() !== "" && Number.isFinite(decimalNumber(value)) && decimalNumber(value) >= 0 ? formatMeasure(value) : "—";
+  if (exercise?.group === "Cardio") {
+    const metric = cardioValue(exercise, set);
+    return `${measure(set.minutes)} min${String(metric ?? "").trim() !== "" ? ` · ${measure(metric)} ${cardioMetric(exercise).unit}` : ""}`;
+  }
+  const kg = decimalNumber(set.kg);
+  const weight = String(set.kg ?? "").trim() === "" || kg === 0 ? "Peso corporal" : `${measure(set.kg)} kg`;
+  return `${weight} × ${measure(set.reps)} reps`;
+}
+function renderHistorySummary(date) {
+  const summary = sessionSummaryData(date);
+  if (!summary) return "";
+  return `<h2 id="sheet-title">Resumen del entrenamiento</h2><p class="history-summary-date">${escapeHtml(formatDate(date))}${summary.finished ? " · Sesión terminada" : ""}</p>
+    ${summary.exercises.length ? `<div class="history-summary-totals"><span><strong>${summary.exercises.length}</strong> ${summary.exercises.length === 1 ? "ejercicio registrado" : "ejercicios registrados"}</span><span><strong>${summary.completedSets}</strong> ${summary.completedSets === 1 ? "serie hecha" : "series hechas"}</span></div>${summary.completedSets ? "" : '<p class="history-summary-notice">No hay series marcadas como realizadas. Estos datos quedaron registrados sin marcar.</p>'}<div class="history-summary-list">${summary.exercises.map(item => `<article class="history-summary-exercise"><h3>${escapeHtml(item.exercise?.name || "Ejercicio no disponible")}</h3>${item.exercise ? `<span class="history-summary-group">${escapeHtml(item.exercise.group)}</span>` : ""}${item.sets.length ? `<ul>${item.sets.map(row => `<li><span class="history-summary-index">${row.number}.${row.set.dropSet ? ' <small class="drop-set-label" title="Drop Set">DS</small>' : ""}</span><span>${escapeHtml(summarySetText(item.exercise, row.set))}</span><span class="history-summary-status${row.set.done ? " is-done" : ""}">${row.set.done ? "✓ Hecha" : "Sin marcar"}</span></li>`).join("")}</ul>` : '<p>Marcado como realizado, sin series detalladas.</p>'}</article>`).join("")}</div>` : '<div class="history-summary-empty"><strong>Sin actividad registrada</strong><p>Esta fecha solo tiene una sesión abierta o preparada. No cuenta como entrenamiento y podés eliminarla.</p></div>'}
+    <div class="sheet-buttons history-summary-actions"><button type="button" class="secondary-button" data-close-overlay>Cerrar</button><button type="button" class="delete-session-button" data-action="delete-session" data-date="${escapeHtml(date)}">Eliminar registro</button></div>`;
+}
+function openHistorySummary(date) {
+  if (!Object.hasOwn(state.sessions, date)) return;
+  openOverlay(renderHistorySummary(date));
 }
 function shiftHistoryMonth(offset) {
   const [year, month] = historyMonth.split("-").map(Number);
@@ -689,13 +732,14 @@ function renderHistory() {
     if (day < 1 || day > days) return `<span class="calendar-blank" aria-hidden="true"></span>`;
     const date = `${historyMonth}-${String(day).padStart(2, "0")}`;
     const hasRecord = recorded.has(date);
-    return `<button type="button" class="calendar-day${hasRecord ? " has-record" : ""}${date === todayISO() ? " is-today" : ""}" data-action="open-date" data-date="${date}" ${hasRecord ? "" : "disabled"} ${date === todayISO() ? 'aria-current="date"' : ""} aria-label="${escapeHtml(formatDate(date))}: ${hasRecord ? "con registro, abrir sesión" : "sin registro"}"><span>${day}</span>${hasRecord ? '<span class="calendar-dot" aria-hidden="true"></span>' : ""}</button>`;
+    const hasDraft = !hasRecord && Object.hasOwn(state.sessions, date);
+    return `<button type="button" class="calendar-day${hasRecord ? " has-record" : hasDraft ? " has-draft" : ""}${date === todayISO() ? " is-today" : ""}" data-action="open-date" data-date="${date}" ${hasRecord || hasDraft ? "" : "disabled"} ${date === todayISO() ? 'aria-current="date"' : ""} aria-label="${escapeHtml(formatDate(date))}: ${hasRecord ? "con registro, ver resumen" : hasDraft ? "sin actividad, revisar o eliminar registro" : "sin registro"}"><span>${day}</span>${hasRecord ? '<span class="calendar-dot" aria-hidden="true"></span>' : hasDraft ? '<span class="calendar-dot draft-dot" aria-hidden="true"></span>' : ""}</button>`;
   }).join("");
-  return `<div class="view-header"><div><p class="eyebrow">Tu progreso</p><h1 class="view-title">Historial</h1><div class="subtle">Toca un día con registro para revisar tu sesión.</div></div></div><section class="history-calendar" aria-labelledby="calendar-title"><div class="calendar-heading"><button type="button" class="secondary-button calendar-arrow" data-action="history-prev" aria-label="Mes anterior">‹</button><h2 id="calendar-title">${escapeHtml(label)}</h2><button type="button" class="secondary-button calendar-arrow" data-action="history-next" aria-label="Mes siguiente">›</button></div><div class="calendar-tools"><label for="history-month">Ir al mes</label><input id="history-month" class="date-input" type="month" min="1900-01" max="9999-12" value="${historyMonth}" /><button type="button" class="text-button" data-action="history-current">Este mes</button></div><div class="calendar-weekdays" aria-hidden="true">${["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map(day => `<span>${day}</span>`).join("")}</div><div class="calendar-days">${cells}</div><div class="calendar-legend"><span class="calendar-dot" aria-hidden="true"></span> Día con registro <span class="calendar-total">${count} ${count === 1 ? "día este mes" : "días este mes"}</span></div>${count ? "" : '<p class="calendar-empty">No hay entrenamientos registrados en este mes.</p>'}</section><p class="note">Un día cuenta cuando anotas peso, repeticiones, minutos, velocidad o distancia, o marcas una serie o ejercicio como hecho. Los días que solo abres o preparas no aparecen como trabajados.</p>`;
+  return `<div class="view-header"><div><p class="eyebrow">Tu progreso</p><h1 class="view-title">Historial</h1><div class="subtle">Tocá una fecha para ver el resumen o eliminar su registro.</div></div></div><section class="history-calendar" aria-labelledby="calendar-title"><div class="calendar-heading"><button type="button" class="secondary-button calendar-arrow" data-action="history-prev" aria-label="Mes anterior">‹</button><h2 id="calendar-title">${escapeHtml(label)}</h2><button type="button" class="secondary-button calendar-arrow" data-action="history-next" aria-label="Mes siguiente">›</button></div><div class="calendar-tools"><label for="history-month">Ir al mes</label><input id="history-month" class="date-input" type="month" min="1900-01" max="9999-12" value="${historyMonth}" /><button type="button" class="text-button" data-action="history-current">Este mes</button></div><div class="calendar-weekdays" aria-hidden="true">${["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map(day => `<span>${day}</span>`).join("")}</div><div class="calendar-days">${cells}</div><div class="calendar-legend"><span class="calendar-dot" aria-hidden="true"></span> Con actividad <span class="calendar-dot draft-dot" aria-hidden="true"></span> Sin actividad <span class="calendar-total">${count} ${count === 1 ? "día este mes" : "días este mes"}</span></div>${count ? "" : '<p class="calendar-empty">No hay entrenamientos registrados en este mes.</p>'}</section><p class="note">Los valores sugeridos y los días que solo abrís no cuentan como entrenamiento. Las fechas sin actividad se pueden abrir para eliminar su registro.</p>`;
 }
 function openDeleteSession(date) {
-  if (!hasSessionActivity(state.sessions[date])) return;
-  openOverlay(`<h2 id="sheet-title">Eliminar sesión</h2><p>¿Quieres eliminar la sesión del <strong>${escapeHtml(formatDate(date))}</strong>? Se borrarán sus series, pesos, repeticiones y marcas de realizado. Tus rutinas y las demás sesiones se conservarán.</p><p>Esta acción no se puede deshacer. Puedes exportar un respaldo antes de eliminarla.</p><div class="sheet-buttons"><button type="button" class="secondary-button" data-close-overlay>Cancelar</button><button type="button" class="danger-button" data-action="confirm-delete-session" data-date="${date}">Sí, eliminar sesión</button></div>`);
+  if (!Object.hasOwn(state.sessions, date)) return;
+  openOverlay(`<h2 id="sheet-title">Eliminar registro</h2><p>¿Querés eliminar el registro del <strong>${escapeHtml(formatDate(date))}</strong>? Se borrarán sus series, pesos, repeticiones y marcas de realizado. Tus rutinas y las demás sesiones se conservarán.</p><p>Esta acción no se puede deshacer. Puedes exportar un respaldo antes de eliminarla.</p><div class="sheet-buttons"><button type="button" class="secondary-button" data-close-overlay>Cancelar</button><button type="button" class="danger-button" data-action="confirm-delete-session" data-date="${date}">Sí, eliminar registro</button></div>`);
 }
 async function setSessionFinished(date, finished) {
   const session = state.sessions[date];
@@ -729,7 +773,7 @@ async function deleteSession(date) {
   expandedId = "";
   tab = "history";
   closeOverlay(); render(); window.scrollTo(0, 0);
-  showToast("Sesión eliminada");
+  showToast("Registro eliminado");
   return true;
 }
 function openOverlay(html, imagePreview = false) {
@@ -792,8 +836,8 @@ function addToSession(id) {
   session.selected.push(id);
   if (!session.sets[id]) {
     const ex = getExercise(id);
-    // Reuse the last completed strength set, without inheriting completion flags.
-    const previous = ex?.group === "Cardio" ? undefined : recordedUses(id, activeDate).at(-1)?.sets.at(-1);
+    // Drop Sets remain in history but never seed a new normal strength set.
+    const previous = ex?.group === "Cardio" ? undefined : lastRegularSet(id, activeDate);
     session.sets[id] = Array.from({ length: 3 }, () => newSetFor(ex, previous));
   }
   expandedId = id;
@@ -893,8 +937,7 @@ document.addEventListener("click", async event => {
   if (action === "history-prev" || action === "history-next") { shiftHistoryMonth(action === "history-prev" ? -1 : 1); render(); return; }
   if (action === "history-current") { historyMonth = todayISO().slice(0, 7); render(); return; }
   if (action === "open-date") {
-    if (!hasSessionActivity(state.sessions[button.dataset.date])) return;
-    activeDate = button.dataset.date; tab = "today"; expandedId = state.sessions[activeDate].selected[0] || ""; render(); window.scrollTo(0, 0); return;
+    openHistorySummary(button.dataset.date); return;
   }
   const session = ensureSession();
   if (action === "go-catalog") { tab = "catalog"; render(); window.scrollTo(0, 0); }
@@ -914,10 +957,15 @@ document.addEventListener("click", async event => {
   if (action === "edit-exercise") openExerciseForm(id);
   if (action === "expand") { expandedId = expandedId === id ? "" : id; render(); }
   if (action === "toggle-complete") { session.completed[id] = !isExerciseComplete(session, id); persist(); render(); }
-  if (action === "add-set") {
+  if (action === "add-set" || action === "add-drop-set") {
+    const ex = getExercise(id);
+    if (!ex || (action === "add-drop-set" && ex.group === "Cardio")) return;
     const sets = session.sets[id] ||= [];
-    const last = sets.at(-1);
-    sets.push(newSetFor(getExercise(id), last));
+    const dropSet = action === "add-drop-set";
+    const previous = dropSet ? sets.at(-1) : sets.filter(set => !set.dropSet).at(-1) || lastRegularSet(id);
+    const set = newSetFor(ex, previous);
+    if (dropSet) set.dropSet = true;
+    sets.push(set);
     delete session.completed[id];
     persist(); render();
   }
@@ -950,6 +998,7 @@ document.addEventListener("input", event => {
   const set = ensureSession().sets[event.target.dataset.ex]?.find(item => item.id === event.target.dataset.setId);
   if (set) {
     set[field] = event.target.value;
+    delete set.prefilled;
     if (getExercise(event.target.dataset.ex)?.group !== "Cardio" && (field === "kg" || field === "reps") && updateAutoDone(set)) {
       delete ensureSession().completed[event.target.dataset.ex];
       refreshSetProgress(event.target);
@@ -981,6 +1030,7 @@ document.addEventListener("change", event => {
     const cardio = getExercise(event.target.dataset.ex)?.group === "Cardio";
     if (event.target.checked && cardio && !validCardioSet(getExercise(event.target.dataset.ex), set)) { event.target.checked = false; showToast("Anota los minutos primero"); return; }
     if (event.target.checked && !cardio && (!Number.isInteger(Number(set.reps)) || Number(set.reps) <= 0)) { event.target.checked = false; showToast("Anota las repeticiones primero"); return; }
+    delete set.prefilled;
     set.done = event.target.checked;
     set.autoDone = false;
     set.manualDone = true;

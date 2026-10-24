@@ -75,3 +75,32 @@
 .session-card .add-set{display:grid;place-items:center;min-width:44px;min-height:36px;padding:0;border:0;border-radius:0;background:transparent;font-size:26px;line-height:1;font-weight:500}
 .session-card .remove-from-day{min-height:36px;padding:4px 0;font-size:11px}
 .session-card .add-set:focus-visible,.session-card .remove-from-day:focus-visible{outline:2px solid #b56f42;outline-offset:1px}
+
+/* History summaries stay in the calendar and contain no editable session controls. */
+.calendar-day.has-draft{background:#f5f5f1;color:#7b858e}
+.calendar-day.has-draft:hover{background:#eceee8}
+.calendar-dot.draft-dot{background:transparent;border:1px solid #8b969b}
+.calendar-legend{flex-wrap:wrap;row-gap:8px}
+.sheet .history-summary-date{margin-bottom:14px;text-transform:capitalize}
+.history-summary-totals{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px;border-radius:12px;background:#f3f6f2;font-size:12px;color:#65717c}
+.history-summary-totals strong{display:block;font-size:23px;line-height:1.25;color:#172430}
+.history-summary-list{display:grid;gap:10px;margin-top:14px}
+.history-summary-exercise{padding:12px;border:1px solid #e2e7e1;border-radius:12px}
+.history-summary-exercise h3{margin:0;font-size:14px;line-height:1.4;overflow-wrap:anywhere}
+.history-summary-group{display:block;margin-top:3px;font-size:11px;color:#78858c}
+.history-summary-exercise ul{display:grid;gap:7px;list-style:none;padding:0;margin:10px 0 0}
+.history-summary-exercise li{display:grid;grid-template-columns:20px minmax(0,1fr) auto;gap:6px;align-items:baseline;font-size:12px;line-height:1.4}
+.history-summary-index{color:#8b969b}
+.history-summary-status{font-size:10px;color:#7d8a91;white-space:nowrap}
+.history-summary-status.is-done{color:#35704f}
+.sheet .history-summary-notice{margin:12px 0 0;font-size:12px}
+.history-summary-empty{padding:16px;border:1px dashed #cbd2d1;border-radius:12px;background:#f9fbf8}
+.history-summary-empty strong{font-size:14px}
+.sheet .history-summary-empty p,.sheet .history-summary-exercise p{margin:8px 0 0;font-size:12px}
+.history-summary-actions button{min-height:42px}
+
+.add-set-actions{display:flex;align-items:center;gap:8px}
+.session-card .add-drop-set{font-size:14px;font-weight:650;min-width:52px}
+.drop-set-label{font-size:9px;font-weight:750;color:#ad6336;line-height:1.2}
+.session-card .set-index .drop-set-label{display:block}
+.history-summary-index .drop-set-label{display:block}
