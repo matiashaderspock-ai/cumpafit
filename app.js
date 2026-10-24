@@ -596,7 +596,7 @@ function renderSessionExercise(ex, session, index) {
   const done = isExerciseComplete(session, ex.id);
   const pair = `Ejercicio ${index + 1}`;
   return `<article class="session-card${done ? " done" : ""}">
-    <div class="session-main">${imageMarkup(ex)}<h3 class="session-heading" title="${escapeHtml(`${pair} · ${ex.group} · ${ex.name}`)}"><span class="exercise-kicker">${pair} · ${escapeHtml(ex.group)} · </span><span class="session-exercise-name" lang="en">${escapeHtml(ex.name)}</span></h3><button type="button" class="complete-button${done ? " done" : ""}" data-action="toggle-complete" data-id="${ex.id}" aria-label="${done ? "Marcar pendiente" : "Marcar completado"}: ${escapeHtml(ex.name)}" aria-pressed="${done}"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></button></div>
+    <div class="session-main">${imageMarkup(ex)}<h3 class="session-heading" title="${escapeHtml(`${pair} · ${ex.group} · ${ex.name}`)}"><span class="exercise-kicker">EJ. ${index + 1} · ${escapeHtml(ex.group)} · </span><span class="session-exercise-name" lang="en">${escapeHtml(ex.name)}</span></h3><button type="button" class="complete-button${done ? " done" : ""}" data-action="toggle-complete" data-id="${ex.id}" aria-label="${done ? "Marcar pendiente" : "Marcar completado"}: ${escapeHtml(ex.name)}" aria-pressed="${done}"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></button></div>
     ${sessionPerformanceMarkup(ex.id)}<button type="button" class="expand-button" data-action="expand" data-id="${ex.id}" aria-expanded="${isOpen}"><span>${sets.filter(set => set.done).length} de ${sets.length} series hechas</span><svg viewBox="0 0 24 24"><path d="m5 9 7 7 7-7"/></svg></button>
     ${isOpen ? `<div class="sets-panel"><div class="set-header"><span>Serie</span><span>${ex.group === "Cardio" ? "Minutos" : "Peso kg"}</span><span>${ex.group === "Cardio" ? cardioMetric(ex).heading : "Reps"}</span><span>Hecha</span><span></span></div>${sets.map((set, i) => `<div class="set-row"><span class="set-index">${String(i + 1).padStart(2, "0")}${set.dropSet ? '<small class="drop-set-label" title="Drop Set">DS</small>' : ""}</span>${renderSetFields(ex, set, i)}<input class="set-check" type="checkbox" ${set.done ? "checked" : ""} data-set-done data-ex="${ex.id}" data-set-id="${set.id}" aria-label="Serie ${i + 1}${set.dropSet ? " Drop Set" : ""} hecha" /><button type="button" class="remove-set" data-action="remove-set" data-id="${ex.id}" data-set-id="${set.id}" aria-label="Quitar serie ${i + 1}${set.dropSet ? " Drop Set" : ""}"><svg viewBox="0 0 24 24"><path d="M5 7h14m-12 0 1 13h8l1-13M9 7V4h6v3"/></svg></button></div>`).join("")}<div class="panel-actions"><div class="add-set-actions"><button type="button" class="add-set" data-action="add-set" data-id="${ex.id}" aria-label="Añadir serie a ${escapeHtml(ex.name)}" title="Añadir serie"><span aria-hidden="true">+</span></button>${ex.group === "Cardio" ? "" : `<button type="button" class="add-set add-drop-set" data-action="add-drop-set" data-id="${ex.id}" aria-label="Añadir Drop Set a ${escapeHtml(ex.name)}" title="Añadir Drop Set"><span aria-hidden="true">+ DS</span></button>`}</div><button type="button" class="remove-from-day" data-action="remove-exercise" data-id="${ex.id}">Quitar de hoy</button></div></div>` : ""}</article>`;
 }
@@ -1093,6 +1093,45 @@ for (const eventType of ["click", "input", "change", "submit"]) {
   }, true);
 }
 
+async function startOfflineImages() {
+  if (!("serviceWorker" in navigator) || !window.isSecureContext) return;
+  let registration, retryTimer;
+  const resume = () => {
+    clearTimeout(retryTimer);
+    (navigator.serviceWorker.controller || registration?.active)?.postMessage({ type: "CACHE_IMAGES" });
+  };
+  const showStatus = status => {
+    const element = $("#offline-images-status");
+    if (!element) return;
+    if (!["ready", "loading", "paused", "unavailable"].includes(status.phase)) return;
+    if (status.phase !== "unavailable" && (!Number.isInteger(status.total) || status.total < 1 || !Number.isInteger(status.completed) || status.completed < 0 || status.completed > status.total)) return;
+    if (status.phase === "ready" && status.completed !== status.total) return;
+    clearTimeout(retryTimer);
+    element.hidden = false;
+    element.dataset.state = status.phase;
+    element.textContent = status.phase === "ready" && status.completed === status.total
+      ? "✓ Imágenes listas sin conexión"
+      : status.phase === "unavailable" ? "Descarga de imágenes pendiente. Se reintentará."
+      : `${status.phase === "loading" ? "Guardando imágenes" : "Imágenes guardadas"} · ${status.completed}/${status.total}${status.phase === "paused" ? " · Descarga pendiente" : ""}`;
+    if (status.phase === "paused" || status.phase === "unavailable") retryTimer = setTimeout(() => {
+      if (navigator.onLine !== false && document.visibilityState !== "hidden") resume();
+    }, 30000);
+  };
+  navigator.serviceWorker.addEventListener("message", event => {
+    if (event.data?.type === "OFFLINE_IMAGES_STATUS") showStatus(event.data);
+  });
+  navigator.serviceWorker.addEventListener("controllerchange", resume);
+  window.addEventListener("online", resume);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") resume(); });
+  registration = await navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" });
+  await navigator.serviceWorker.ready;
+  resume();
+  // A denied/unsupported persistence request must not stop downloads or workouts.
+  try {
+    if (navigator.storage?.persist && !await navigator.storage.persisted?.()) await navigator.storage.persist();
+  } catch { /* Browser decides whether storage can be retained persistently. */ }
+}
+
 async function init() {
   try {
     db = await openDB();
@@ -1105,7 +1144,7 @@ async function init() {
     if (addedExercises || renamedExercises || needsRoutines) await writeState(structuredClone(state));
     activeDate = observedToday = todayISO();
     render();
-    if ("serviceWorker" in navigator && window.isSecureContext) navigator.serviceWorker.register("./sw.js").catch(console.warn);
+    startOfflineImages().catch(console.warn);
   } catch (error) {
     console.error(error);
     $("#view").innerHTML = `<div class="empty-state"><h2>No se pudo abrir el registro</h2><p>Revisa que el navegador permita guardar datos y vuelve a cargar la página.</p></div>`;
