@@ -1113,7 +1113,8 @@ async function startOfflineImages() {
       ? "✓ Imágenes listas sin conexión"
       : status.phase === "unavailable" ? "Descarga de imágenes pendiente. Se reintentará."
       : `${status.phase === "loading" ? "Guardando imágenes" : "Imágenes guardadas"} · ${status.completed}/${status.total}${status.phase === "paused" ? " · Descarga pendiente" : ""}`;
-    if (status.phase === "paused" || status.phase === "unavailable") retryTimer = setTimeout(() => {
+    // Also recover a loading job if the browser suspends its service worker.
+    if (status.phase !== "ready") retryTimer = setTimeout(() => {
       if (navigator.onLine !== false && document.visibilityState !== "hidden") resume();
     }, 30000);
   };
