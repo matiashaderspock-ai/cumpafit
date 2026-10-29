@@ -82,9 +82,11 @@ const STARTER_EXERCISES = [
   {"id":"hanging-leg-raise","name":"Hanging Leg Raise","nameEs":"Elevación de piernas colgado","group":"Abs","equipment":"Barra de dominadas"},
   {"id":"jump-rope","name":"Jump Rope","nameEs":"Salto de cuerda","group":"Cardio","equipment":"Cuerda para saltar"},
   {"id":"dumbbell-wrist-curl","name":"Dumbbell Wrist Curl","nameEs":"Curl de muñecas con mancuernas","group":"Otros","equipment":"Mancuernas · Banco"},
-  {"id":"dumbbell-reverse-wrist-curl","name":"Dumbbell Reverse Wrist Curl","nameEs":"Extensión de muñecas con mancuernas","group":"Otros","equipment":"Mancuernas · Banco"}
+  {"id":"dumbbell-reverse-wrist-curl","name":"Dumbbell Reverse Wrist Curl","nameEs":"Extensión de muñecas con mancuernas","group":"Otros","equipment":"Mancuernas · Banco"},
+  {"id":"standing-ez-bar-machine-curl","name":"Standing EZ-Bar Machine Curl","group":"Bíceps","equipment":"Panatta · Máquina de pesas con selector","nameEs":"Curl de bíceps de pie en máquina con barra EZ"},
 ];
 const STARTER_ILLUSTRATIONS = {
+  "standing-ez-bar-machine-curl": "./assets/standing-ez-bar-machine-curl.png",
   "curl-inclinado": "./assets/curl-inclinado-hd.jpg",
   "triceps-pushdown": "./assets/triceps-pushdown-hd.jpg",
   "curl-martillo": "./assets/curl-martillo-hd.jpg",
