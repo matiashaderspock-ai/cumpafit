@@ -243,6 +243,9 @@ let catalogSearch = "";
 let saveTimer;
 let saveChain = Promise.resolve();
 let toastTimer;
+let undoAction;
+const sessionHistoryOpen = new Set();
+const catalogDetailsOpen = new Set();
 let routineDraft;
 let historyMonth = activeDate.slice(0, 7);
 
@@ -477,11 +480,12 @@ function weightHistoryMarkup(id, beforeDate) {
   return content ? performanceWidget(id, "weight-history", content.label, content.body) : "";
 }
 function sessionPerformanceMarkup(id) {
-  const last = lastUseContent(id, activeDate, true);
-  const history = weightHistoryContent(id, activeDate, true);
+  const expanded = sessionHistoryOpen.has(`${activeDate}:${id}`);
   const key = `${tab}-${activeDate}-session-history-${id}`;
   const description = `registros de ${getExercise(id)?.name || id}`;
-  return `<button type="button" class="performance-widget session-performance${history ? "" : " is-cardio"} is-expanded" data-action="toggle-performance-widget" data-widget-label="${escapeHtml(description)}" aria-expanded="true" aria-controls="${escapeHtml(key)}" aria-label="Minimizar ${escapeHtml(description)}"><span class="session-performance-head"><span class="performance-label">${escapeHtml(last.label)}</span>${history ? `<span class="performance-label">${escapeHtml(history.label)}</span>` : ""}<svg class="session-performance-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span><span class="performance-details session-performance-columns" id="${escapeHtml(key)}"><span class="session-last-use">${last.body}</span>${history ? `<span class="session-weight-history">${history.body}</span>` : ""}</span></button>`;
+  const last = expanded ? lastUseContent(id, activeDate, true) : null;
+  const history = expanded ? weightHistoryContent(id, activeDate, true) : null;
+  return `<button type="button" class="performance-widget session-performance${getExercise(id)?.group === "Cardio" ? " is-cardio" : ""}${expanded ? " is-expanded" : ""}" data-action="toggle-session-history" data-id="${escapeHtml(id)}" data-widget-label="${escapeHtml(description)}" aria-expanded="${expanded}" aria-controls="${escapeHtml(key)}" aria-label="${expanded ? "Minimizar" : "Ampliar"} ${escapeHtml(description)}"><span class="session-history-heading"><span>Registros anteriores</span><span>${expanded ? "Ocultar" : "Ver"} <span aria-hidden="true">${expanded ? "⌃" : "⌄"}</span></span></span><span class="performance-details session-performance-columns" id="${escapeHtml(key)}" ${expanded ? "" : "hidden"}>${expanded ? `<span class="session-last-use"><span class="performance-label">${escapeHtml(last.label)}</span>${last.body}</span>${history ? `<span class="session-weight-history"><span class="performance-label">${escapeHtml(history.label)}</span>${history.body}</span>` : ""}` : ""}</span></button>`;
 }
 function cardioMaximum(id) {
   let best = null;
@@ -535,12 +539,41 @@ function maximumSummaryMarkup(id) {
   const weight = new Intl.NumberFormat("es-BO", { maximumFractionDigits: 2 }).format(maximum.kg);
   return `<span class="graph-note historical-summary">Máximo histórico: ${escapeHtml(weight)} kg · ${maximum.reps} reps · ${date}</span>`;
 }
-function showToast(message) {
+function showToast(message, undo) {
   const toast = $("#toast");
   toast.textContent = message;
+  undoAction = undo || null;
+  if (undoAction) {
+    const button = document.createElement("button");
+    button.type = "button"; button.dataset.action = "undo-removal"; button.textContent = "Deshacer";
+    toast.appendChild(button);
+  }
   toast.classList.add("show");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toast.classList.remove("show"), 2300);
+  toastTimer = setTimeout(() => { toast.classList.remove("show"); undoAction = null; }, undo ? 8000 : 2300);
+}
+function undoRemovedSet(date, id, set, index, wasCompleted, completed, remainingSnapshot) {
+  const session = state.sessions[date];
+  if (!session || !session.sets[id] || session.sets[id].some(item => item.id === set.id)) return;
+  const unchanged = JSON.stringify(session.sets[id]) === remainingSnapshot;
+  session.sets[id].splice(Math.min(index, session.sets[id].length), 0, set);
+  if (wasCompleted && unchanged && !Object.hasOwn(session.completed, id)) session.completed[id] = completed;
+  persist(); render();
+}
+function undoRemovedExercise(date, id, index) {
+  const session = state.sessions[date];
+  if (!session || session.selected.includes(id)) return;
+  session.selected.splice(Math.min(index, session.selected.length), 0, id);
+  expandedId = id;
+  persist(); render();
+}
+function removeExerciseWithUndo(id) {
+  const session = ensureSession();
+  const index = session.selected.indexOf(id);
+  if (index < 0) return;
+  const date = activeDate;
+  removeFromSession(id); render();
+  showToast("Ejercicio quitado de la sesión", () => undoRemovedExercise(date, id, index));
 }
 function render() {
   const view = $("#view");
@@ -554,11 +587,14 @@ function render() {
     if (button.dataset.tab === tab) button.setAttribute("aria-current", "page"); else button.removeAttribute("aria-current");
   });
 }
+function renderSessionSummary(session, exercises) {
+  const completed = exercises.filter(ex => isExerciseComplete(session, ex.id)).length;
+  return `<section class="summary-card" aria-label="Progreso de la sesión"><div class="summary-number" aria-label="${completed} de ${exercises.length} ejercicios completados">${completed}<span> / ${exercises.length}</span></div><div class="progress-track" role="progressbar" aria-label="Ejercicios completados" aria-valuemin="0" aria-valuemax="${exercises.length || 1}" aria-valuenow="${completed}"><div class="progress-fill" style="width:${exercises.length ? completed / exercises.length * 100 : 0}%"></div></div></section>`;
+}
 function renderToday() {
   const session = ensureSession();
   const exercises = session.selected.map(getExercise).filter(Boolean);
-  const completed = exercises.filter(ex => isExerciseComplete(session, ex.id)).length;
-  return `<section class="summary-card" aria-label="Progreso de la sesión"><div class="summary-number" aria-label="${completed} de ${exercises.length} ejercicios completados">${completed}<span> / ${exercises.length}</span></div><div class="progress-track" role="progressbar" aria-label="Ejercicios completados" aria-valuemin="0" aria-valuemax="${exercises.length || 1}" aria-valuenow="${completed}"><div class="progress-fill" style="width:${exercises.length ? completed / exercises.length * 100 : 0}%"></div></div></section>
+  return `${renderSessionSummary(session, exercises)}
     <div class="section-head"><h2>Ejercicios de esta sesión</h2><button class="text-button" type="button" data-action="go-catalog">+ Elegir ejercicios</button></div>
     ${exercises.length ? `<div class="session-list">${exercises.map((ex, index) => renderSessionExercise(ex, session, index)).join("")}</div>` : `<div class="empty-state"><div class="empty-icon">＋</div><h3>Tu sesión está vacía</h3><p>Elige los ejercicios que quieras hacer hoy.</p><button class="primary-button" data-action="go-catalog">Abrir inventario</button></div>`}
     <p class="session-date"><time datetime="${escapeHtml(activeDate)}">${escapeHtml(formatDate(activeDate))}</time></p>
@@ -573,10 +609,10 @@ function renderSetFields(ex, set, index) {
 function refreshSetProgress(input) {
   // Refresh progress without replacing inputs or interrupting the phone keyboard.
   const template = document.createElement("template");
-  template.innerHTML = renderToday();
+  const session = ensureSession();
+  template.innerHTML = renderSessionSummary(session, session.selected.map(getExercise).filter(Boolean));
   $("#view .summary-card").replaceWith(template.content.querySelector(".summary-card"));
   const card = input.closest(".session-card");
-  const session = ensureSession();
   const id = input.dataset.ex;
   const done = isExerciseComplete(session, id);
   const ex = getExercise(id);
@@ -605,14 +641,17 @@ function renderCatalog() {
   return `<div class="view-header catalog-header compact-catalog-header"><p class="eyebrow">Tu inventario</p><h1 class="view-title">Ejercicios</h1><div class="catalog-header-bottom"><div class="subtle">Elige movimientos y agrégalos a tu sesión.</div><div class="header-actions"><button type="button" class="secondary-button" data-action="new-routine">Crear rutina</button><button type="button" class="primary-button light" data-action="new-exercise">+ Nuevo</button></div></div></div>
     <div class="search-row"><input id="catalog-search" class="search-field" type="search" placeholder="Buscar ejercicio o equipo" value="${escapeHtml(catalogSearch)}" aria-label="Buscar ejercicios" /></div>
     <div class="filter-row" role="group" aria-label="Filtrar por grupo muscular">${["Todos", ...GROUPS.filter(group => state.exercises.some(ex => !ex.archived && ex.group === group)), "Archivados"].map(group => `<button type="button" class="filter${catalogFilter === group ? " active" : ""}" data-filter="${group}">${group}</button>`).join("")}</div>
-    <div id="catalog-list" class="catalog-grid">${renderCatalogCards()}</div><p class="note">Estas ilustraciones son ejemplos de movimientos; puedes adaptar o añadir ejercicios según las máquinas de tu gimnasio.</p>`;
+    <div id="catalog-list" class="catalog-grid">${renderCatalogCards()}</div><p class="note">Estas ilustraciones son ejemplos de movimientos; puedes adaptar o añadir ejercicios según las máquinas de tu gimnasio.</p><button type="button" class="catalog-return" data-action="return-session">Ver sesión · ${ensureSession().selected.length} ${ensureSession().selected.length === 1 ? "ejercicio" : "ejercicios"} <span aria-hidden="true">→</span></button>`;
 }
 function renderCatalogCards() {
   const selected = ensureSession().selected;
   const query = catalogSearch.trim().toLocaleLowerCase("es");
   const filtered = favoritesFirst(state.exercises.filter(ex => (catalogFilter === "Archivados" ? ex.archived : !ex.archived && (catalogFilter === "Todos" || ex.group === catalogFilter)) && exerciseMatches(ex, query)));
   if (!filtered.length) return `<div class="empty-state" style="grid-column:1/-1"><h3>No hay coincidencias</h3><p>Prueba otra búsqueda o añade un ejercicio.</p></div>`;
-  return filtered.map(ex => `<article class="catalog-card">${catalogImageButton(ex)}<div class="catalog-content"><div class="catalog-card-heading"><div class="exercise-kicker">${escapeHtml(ex.group)}</div>${favoriteButton(ex)}</div><h3 class="exercise-title" lang="en">${escapeHtml(ex.name)}</h3><div class="exercise-meta">${escapeHtml(ex.equipment)}</div>${performanceWidgetsMarkup(ex.id)}<div class="catalog-actions">${ex.archived ? `<button type="button" class="catalog-add" data-action="restore-exercise" data-id="${ex.id}">Restaurar</button>` : `<button type="button" class="catalog-add${selected.includes(ex.id) ? " selected" : ""}" data-action="catalog-toggle" data-id="${ex.id}">${selected.includes(ex.id) ? "✓ En sesión" : "+ Añadir"}</button>`}<button type="button" class="secondary-button" data-action="edit-exercise" data-id="${ex.id}" aria-label="Editar ${escapeHtml(ex.name)}">Editar</button></div></div></article>`).join("");
+  return filtered.map(ex => {
+    const details = catalogDetailsOpen.has(ex.id);
+    return `<article class="catalog-card">${catalogImageButton(ex)}<div class="catalog-content"><div class="catalog-card-heading"><div class="exercise-kicker">${escapeHtml(ex.group)}</div>${favoriteButton(ex)}</div><h3 class="exercise-title" lang="en">${escapeHtml(ex.name)}</h3><div class="exercise-meta">${escapeHtml(ex.equipment)}</div><div class="catalog-actions">${ex.archived ? `<button type="button" class="catalog-add" data-action="restore-exercise" data-id="${ex.id}">Restaurar</button>` : `<button type="button" class="catalog-add${selected.includes(ex.id) ? " selected" : ""}" data-action="catalog-toggle" data-id="${ex.id}">${selected.includes(ex.id) ? "✓ En sesión" : "+ Añadir"}</button>`}</div><button type="button" class="catalog-details-toggle" data-action="catalog-details" data-id="${escapeHtml(ex.id)}" aria-expanded="${details}">${details ? "Ocultar detalles ⌃" : "Ver detalles ⌄"}</button><div class="catalog-details" ${details ? "" : "hidden"}>${details ? `${performanceWidgetsMarkup(ex.id)}<button type="button" class="secondary-button catalog-edit" data-action="edit-exercise" data-id="${ex.id}" aria-label="Editar ${escapeHtml(ex.name)}">Editar ejercicio</button>` : ""}</div></div></article>`;
+  }).join("");
 }
 function availableRoutineExercises(routine) {
   return [...new Set(routine.exerciseIds)].map(getExercise).filter(ex => ex && !ex.archived);
@@ -911,6 +950,34 @@ document.addEventListener("click", async event => {
   const button = event.target.closest("[data-action]");
   if (!button) return;
   const { action, id } = button.dataset;
+  if (action === "undo-removal") { const undo = undoAction; undoAction = null; clearTimeout(toastTimer); $("#toast").classList.remove("show"); if (undo) undo(); return; }
+  if (action === "toggle-session-history") {
+    const key = `${activeDate}:${id}`;
+    if (sessionHistoryOpen.has(key)) sessionHistoryOpen.delete(key); else sessionHistoryOpen.add(key);
+    const card = button.closest(".session-card");
+    const session = ensureSession();
+    const index = session.selected.indexOf(id);
+    const ex = getExercise(id);
+    if (card && ex && index >= 0) {
+      const holder = document.createElement("template");
+      holder.innerHTML = sessionPerformanceMarkup(id);
+      button.replaceWith(holder.content.firstElementChild);
+    }
+    return;
+  }
+  if (action === "catalog-details") {
+    const details = button.nextElementSibling;
+    const expanded = !catalogDetailsOpen.has(id);
+    if (expanded) {
+      catalogDetailsOpen.add(id);
+      details.innerHTML = `${performanceWidgetsMarkup(id)}<button type="button" class="secondary-button catalog-edit" data-action="edit-exercise" data-id="${escapeHtml(id)}" aria-label="Editar ${escapeHtml(getExercise(id)?.name || id)}">Editar ejercicio</button>`;
+    } else catalogDetailsOpen.delete(id);
+    details.hidden = !expanded;
+    button.setAttribute("aria-expanded", String(expanded));
+    button.textContent = expanded ? "Ocultar detalles ⌃" : "Ver detalles ⌄";
+    return;
+  }
+  if (action === "return-session") { tab = "today"; render(); window.scrollTo(0, 0); return; }
   if (action === "toggle-performance-widget") { togglePerformanceWidget(button); return; }
   if (action === "toggle-performance-group") { togglePerformanceGroup(button); return; }
   if (action === "toggle-favorite") {
@@ -961,7 +1028,9 @@ document.addEventListener("click", async event => {
     if (!ex || (action === "add-drop-set" && ex.group === "Cardio")) return;
     const sets = session.sets[id] ||= [];
     const dropSet = action === "add-drop-set";
-    const previous = dropSet ? sets.at(-1) : sets.filter(set => !set.dropSet).at(-1) || lastRegularSet(id);
+    const candidates = dropSet ? sets : sets.filter(set => !set.dropSet);
+    const populated = set => ex.group === "Cardio" ? String(set.minutes ?? "").trim() !== "" : (String(set.kg ?? "").trim() !== "" || set.done) && String(set.reps ?? "").trim() !== "";
+    const previous = [...candidates].reverse().find(set => populated(set) && (!set.prefilled || set.done)) || [...candidates].reverse().find(populated) || (dropSet ? undefined : lastRegularSet(id));
     const set = newSetFor(ex, previous);
     if (dropSet) set.dropSet = true;
     sets.push(set);
@@ -969,15 +1038,21 @@ document.addEventListener("click", async event => {
     persist(); render();
   }
   if (action === "remove-set") {
-    session.sets[id] = (session.sets[id] || []).filter(set => set.id !== button.dataset.setId);
+    const sets = session.sets[id] || [];
+    const index = sets.findIndex(set => set.id === button.dataset.setId);
+    if (index < 0) return;
+    const date = activeDate, removed = sets[index];
+    const wasCompleted = Object.hasOwn(session.completed, id), completed = session.completed[id];
+    sets.splice(index, 1);
+    const remainingSnapshot = JSON.stringify(sets);
     delete session.completed[id];
     persist(); render();
+    showToast("Serie quitada", () => undoRemovedSet(date, id, removed, index, wasCompleted, completed, remainingSnapshot));
   }
-  if (action === "remove-exercise") { removeFromSession(id); render(); showToast("Ejercicio quitado de esta sesión"); }
+  if (action === "remove-exercise") { removeExerciseWithUndo(id); return; }
   if (action === "catalog-toggle") {
-    if (session.selected.includes(id)) { removeFromSession(id); showToast("Quitado de la sesión"); }
-    else { addToSession(id); showToast("Añadido a la sesión"); }
-    render();
+    if (session.selected.includes(id)) { removeExerciseWithUndo(id); return; }
+    addToSession(id); render(); showToast("Añadido a la sesión");
   }
   if (action === "archive-exercise" || action === "restore-exercise") {
     const ex = getExercise(id);

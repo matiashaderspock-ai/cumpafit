@@ -116,3 +116,34 @@
 .offline-images-status[data-state="ready"]{color:#35704f}
 
 .history-backup{margin-top:4px;min-height:42px}
+
+/* Compact cards with comfortable touch targets. */
+.session-card .session-main{grid-template-columns:40px minmax(0,1fr) 44px}
+.session-card .complete-button{width:44px;height:44px}
+.session-card>.session-performance{padding:0;margin-bottom:7px}
+.session-history-heading{min-height:44px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;color:#637780;font-size:11px;font-weight:750}
+.session-history-heading>span:last-child{color:#a96337;white-space:nowrap}
+.session-performance .session-performance-columns{padding:3px 10px 10px}
+.session-card .set-header,.session-card .set-row{grid-template-columns:24px minmax(0,68px) minmax(0,58px) 44px 44px;gap:4px}
+.session-card .set-row{min-height:44px;margin-top:0}
+.session-card .set-check{width:44px;height:44px;border-radius:9px}
+.session-card .set-check:checked:after{line-height:41px;font-size:20px}
+.session-card .remove-set{width:44px;min-height:44px}
+.session-card .add-set,.session-card .remove-from-day{min-height:44px}
+.catalog-card .catalog-image{height:clamp(100px,28vw,130px)}
+.catalog-card .catalog-actions{margin-top:9px}
+.catalog-actions .catalog-add{min-height:44px}
+.catalog-details-toggle{min-height:44px;padding:7px 2px;border:0;background:transparent;color:#667780;font-size:11px;font-weight:750;text-align:left}
+.catalog-details[hidden]{display:none}
+.catalog-details .performance-widgets{margin-top:4px}
+.catalog-details .performance-widget{min-height:44px}
+.catalog-details .widgets-toggle-all{top:-30px;width:36px;height:36px}
+.catalog-edit{width:100%;min-height:44px;margin-top:8px;font-size:11px}
+.catalog-card .favorite-button{width:44px;height:44px}
+.catalog-card-heading{min-height:44px}
+.catalog-return{position:fixed;z-index:9;bottom:calc(55px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);width:min(calc(100% - 40px),370px);min-height:44px;border:0;border-radius:12px;padding:10px 15px;background:#172430;color:#fff;box-shadow:0 4px 18px #17243035;font-size:13px;font-weight:750}
+.catalog-return span{margin-left:8px;color:#e9a86f}
+main:has(.catalog-return){padding-bottom:100px}
+.toast.show:has(button){display:flex;align-items:center;gap:12px;pointer-events:auto;white-space:normal;max-width:calc(100vw - 24px)}
+.toast button{min-height:44px;border:0;background:transparent;color:#f5bd86;font-weight:800;padding:4px 6px}
+@media(min-width:680px){.catalog-return{bottom:64px}.toast.show:has(button){bottom:80px}}
