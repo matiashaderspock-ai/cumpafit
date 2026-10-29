@@ -311,3 +311,14 @@ test('already persistent storage is not requested again, and incomplete counts c
   ]) a.receive(data);
   assert.equal(a.status.hidden, true);
 });
+
+test('cached application shell remains usable when the network stalls', async () => {
+  const w = worker({ fetch: (request, { signal }) => new Promise((resolve, reject) => {
+    signal.addEventListener('abort', () => reject(new Error('network timed out')));
+  }) });
+  const cache = await w.storage.open(w.run('CACHE'));
+  await cache.put('./index.html', new Response('saved shell'));
+  const result = await w.request('./', 'navigate').response;
+  assert.equal(await result.text(), 'saved shell');
+  assert.equal(w.calls.length, 1);
+});

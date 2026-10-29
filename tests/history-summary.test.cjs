@@ -205,3 +205,55 @@ test('Drop Sets remain labeled in session, last use and summary after backup imp
   const cardio = a.run(`renderSessionExercise(STARTER_EXERCISES.find(ex => ex.group === 'Cardio'), ensureSession(), 1)`);
   assert.doesNotMatch(cardio, /data-action="add-drop-set"/);
 });
+
+test('Drop Set uses the latest entered series even when later planned rows are empty', async () => {
+  const a = app();
+  a.run(`addToSession(id); ensureSession().sets[id] = [
+    {id:'done', kg:'30', reps:'8', done:true},
+    {id:'empty1', kg:'', reps:'', done:false},
+    {id:'empty2', kg:'', reps:'', done:false}];`);
+  await a.click('add-drop-set', undefined, a.run('id'));
+  assert.equal(a.run('ensureSession().sets[id][3].kg'), '30');
+  assert.equal(a.run('ensureSession().sets[id][3].reps'), '8');
+  assert.equal(a.run('ensureSession().sets[id][3].dropSet'), true);
+});
+
+test('history panels stay collapsed or open across renders, separately by date', () => {
+  const a = app();
+  a.run(`addToSession(id); const key = activeDate + ':' + id;`);
+  assert.match(a.run('sessionPerformanceMarkup(id)'), /aria-expanded="false"/);
+  a.run('sessionHistoryOpen.add(key)');
+  assert.match(a.run('sessionPerformanceMarkup(id)'), /aria-expanded="true"/);
+  assert.match(a.run('renderToday()'), /aria-expanded="true"/);
+  a.run(`activeDate = '2026-10-11'`);
+  assert.match(a.run('sessionPerformanceMarkup(id)'), /aria-expanded="false"/);
+  a.run(`activeDate = '2026-10-10'; sessionHistoryOpen.delete(key)`);
+  assert.match(a.run('renderToday()'), /aria-expanded="false"/);
+});
+
+test('catalog builds history only for exercises whose details are opened', () => {
+  const a = app();
+  a.run(`let calls = 0; const original = recordedUses; recordedUses = (...args) => { calls++; return original(...args); };`);
+  assert.match(a.run('renderCatalogCards()'), /Ver detalles/);
+  assert.equal(a.run('calls'), 0);
+  a.run('catalogDetailsOpen.add(id); renderCatalogCards()');
+  assert.ok(a.run('calls') > 0);
+  assert.match(a.run('renderCatalog()'), /Ver sesión/);
+});
+
+test('undo restores a removed set and exercise in their original position without losing data', () => {
+  const a = app();
+  a.run(`addToSession(id); const other = STARTER_EXERCISES[1].id; addToSession(other);
+    const day = activeDate; const session = ensureSession();
+    const removed = session.sets[id].splice(1, 1)[0]; removed.kg = '20'; removed.reps = '8'; removed.done = true;
+    session.completed[id] = true; delete session.completed[id];
+    undoRemovedSet(day, id, removed, 1, true, true, JSON.stringify(session.sets[id]));`);
+  assert.equal(a.run('session.sets[id][1].kg'), '20');
+  assert.equal(a.run('session.completed[id]'), true);
+  a.run('removeFromSession(id); undoRemovedExercise(day, id, 0)');
+  assert.equal(a.run('session.selected[0]'), a.run('id'));
+  assert.equal(a.run('saved.sessions[day].sets[id][1].reps'), '8');
+  a.run('undoRemovedSet(day, id, removed, 1, true, true, JSON.stringify(session.sets[id])); undoRemovedExercise(day, id, 0)');
+  assert.equal(a.run('session.sets[id].length'), 3);
+  assert.equal(a.run('session.selected.length'), 2);
+});
