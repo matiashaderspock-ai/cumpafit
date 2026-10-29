@@ -210,7 +210,6 @@ function migrateExerciseNames(snapshot) {
   }
   return changed;
 }
-const translationMarkup = ex => ex.nameEs ? `<div class="exercise-translation" lang="es">${escapeHtml(ex.nameEs)}</div>` : "";
 const normalizeSearch = value => String(value ?? "").normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase("es");
 const exerciseMatches = (ex, query) => normalizeSearch(`${ex.name} ${ex.nameEs || ""} ${ex.equipment} ${ex.group}`).includes(normalizeSearch(query));
 const favoritesFirst = exercises => exercises.slice().sort((a, b) => Number(b.favorite === true) - Number(a.favorite === true));
@@ -546,7 +545,6 @@ function showToast(message) {
 function render() {
   const view = $("#view");
   const filterScrollLeft = view.querySelector(".filter-row")?.scrollLeft || 0;
-  $(".topbar").hidden = tab === "today";
   view.classList.toggle("session-view", tab === "today");
   view.innerHTML = tab === "today" ? renderToday() : tab === "catalog" ? renderCatalog() : tab === "routines" ? renderRoutinesPage() : renderHistory();
   const filterRow = view.querySelector(".filter-row");
@@ -614,7 +612,7 @@ function renderCatalogCards() {
   const query = catalogSearch.trim().toLocaleLowerCase("es");
   const filtered = favoritesFirst(state.exercises.filter(ex => (catalogFilter === "Archivados" ? ex.archived : !ex.archived && (catalogFilter === "Todos" || ex.group === catalogFilter)) && exerciseMatches(ex, query)));
   if (!filtered.length) return `<div class="empty-state" style="grid-column:1/-1"><h3>No hay coincidencias</h3><p>Prueba otra búsqueda o añade un ejercicio.</p></div>`;
-  return filtered.map(ex => `<article class="catalog-card">${catalogImageButton(ex)}<div class="catalog-content"><div class="catalog-card-heading"><div class="exercise-kicker">${escapeHtml(ex.group)}</div>${favoriteButton(ex)}</div><h3 class="exercise-title" lang="en">${escapeHtml(ex.name)}</h3>${translationMarkup(ex)}<div class="exercise-meta">${escapeHtml(ex.equipment)}</div>${performanceWidgetsMarkup(ex.id)}<div class="catalog-actions">${ex.archived ? `<button type="button" class="catalog-add" data-action="restore-exercise" data-id="${ex.id}">Restaurar</button>` : `<button type="button" class="catalog-add${selected.includes(ex.id) ? " selected" : ""}" data-action="catalog-toggle" data-id="${ex.id}">${selected.includes(ex.id) ? "✓ En sesión" : "+ Añadir"}</button>`}<button type="button" class="secondary-button" data-action="edit-exercise" data-id="${ex.id}" aria-label="Editar ${escapeHtml(ex.name)}">Editar</button></div></div></article>`).join("");
+  return filtered.map(ex => `<article class="catalog-card">${catalogImageButton(ex)}<div class="catalog-content"><div class="catalog-card-heading"><div class="exercise-kicker">${escapeHtml(ex.group)}</div>${favoriteButton(ex)}</div><h3 class="exercise-title" lang="en">${escapeHtml(ex.name)}</h3><div class="exercise-meta">${escapeHtml(ex.equipment)}</div>${performanceWidgetsMarkup(ex.id)}<div class="catalog-actions">${ex.archived ? `<button type="button" class="catalog-add" data-action="restore-exercise" data-id="${ex.id}">Restaurar</button>` : `<button type="button" class="catalog-add${selected.includes(ex.id) ? " selected" : ""}" data-action="catalog-toggle" data-id="${ex.id}">${selected.includes(ex.id) ? "✓ En sesión" : "+ Añadir"}</button>`}<button type="button" class="secondary-button" data-action="edit-exercise" data-id="${ex.id}" aria-label="Editar ${escapeHtml(ex.name)}">Editar</button></div></div></article>`).join("");
 }
 function availableRoutineExercises(routine) {
   return [...new Set(routine.exerciseIds)].map(getExercise).filter(ex => ex && !ex.archived);
@@ -628,7 +626,7 @@ function renderRoutines() {
     const exercises = availableRoutineExercises(routine);
     const missing = routine.exerciseIds.length - exercises.length;
     const allSelected = exercises.length > 0 && exercises.every(ex => ensureSession().selected.includes(ex.id));
-    return `<article class="routine-card"><h4>${escapeHtml(routine.name)}</h4><div class="subtle">${exercises.length} ${exercises.length === 1 ? "ejercicio disponible" : "ejercicios disponibles"}</div><ul>${exercises.map(ex => `<li><span lang="en">${escapeHtml(ex.name)}</span>${translationMarkup(ex)}</li>`).join("")}</ul>${missing ? `<p class="routine-warning">${missing} ${missing === 1 ? "ejercicio archivado o no disponible" : "ejercicios archivados o no disponibles"}.</p>` : ""}<div class="routine-actions"><button type="button" class="catalog-add${allSelected ? " selected" : ""}" data-action="add-routine" data-id="${escapeHtml(routine.id)}" ${!exercises.length || allSelected ? "disabled" : ""}>${allSelected ? "✓ En sesión" : "+ Añadir a sesión"}</button><button type="button" class="secondary-button" data-action="edit-routine" data-id="${escapeHtml(routine.id)}" aria-label="Editar rutina ${escapeHtml(routine.name)}">Editar</button></div></article>`;
+    return `<article class="routine-card"><h4>${escapeHtml(routine.name)}</h4><div class="subtle">${exercises.length} ${exercises.length === 1 ? "ejercicio disponible" : "ejercicios disponibles"}</div><ul>${exercises.map(ex => `<li><span lang="en">${escapeHtml(ex.name)}</span></li>`).join("")}</ul>${missing ? `<p class="routine-warning">${missing} ${missing === 1 ? "ejercicio archivado o no disponible" : "ejercicios archivados o no disponibles"}.</p>` : ""}<div class="routine-actions"><button type="button" class="catalog-add${allSelected ? " selected" : ""}" data-action="add-routine" data-id="${escapeHtml(routine.id)}" ${!exercises.length || allSelected ? "disabled" : ""}>${allSelected ? "✓ En sesión" : "+ Añadir a sesión"}</button><button type="button" class="secondary-button" data-action="edit-routine" data-id="${escapeHtml(routine.id)}" aria-label="Editar rutina ${escapeHtml(routine.name)}">Editar</button></div></article>`;
   }).join("")}</div></div>`).join("") : `<div class="routine-empty">Guarda tus combinaciones favoritas por músculo con el botón <strong>Crear rutina</strong>.</div>`}</section>`;
 }
 function openRoutineForm(id) {
@@ -641,7 +639,7 @@ function openRoutineForm(id) {
 function renderRoutineOptions() {
   const query = $("#routine-search").value.trim().toLocaleLowerCase("es");
   const exercises = favoritesFirst(state.exercises.filter(ex => ex.group === routineDraft.group && (!ex.archived || routineDraft.exerciseIds.has(ex.id)) && exerciseMatches(ex, query)));
-  $("#routine-options").innerHTML = exercises.length ? exercises.map(ex => `<label class="routine-option"><input type="checkbox" aria-label="${escapeHtml(ex.name)}" data-routine-ex="${escapeHtml(ex.id)}" ${routineDraft.exerciseIds.has(ex.id) ? "checked" : ""} />${imageMarkup(ex, "routine-thumbnail")}<span class="routine-option-copy"><strong lang="en">${escapeHtml(ex.name)}</strong>${translationMarkup(ex)}<small>${ex.archived ? "Archivado · no se añadirá a la sesión" : escapeHtml(ex.equipment)}</small></span></label>`).join("") : `<p class="routine-empty">${query ? "No hay coincidencias con esta búsqueda." : "No hay ejercicios disponibles para este músculo. Añádelos desde Nuevo."}</p>`;
+  $("#routine-options").innerHTML = exercises.length ? exercises.map(ex => `<label class="routine-option"><input type="checkbox" aria-label="${escapeHtml(ex.name)}" data-routine-ex="${escapeHtml(ex.id)}" ${routineDraft.exerciseIds.has(ex.id) ? "checked" : ""} />${imageMarkup(ex, "routine-thumbnail")}<span class="routine-option-copy"><strong lang="en">${escapeHtml(ex.name)}</strong><small>${ex.archived ? "Archivado · no se añadirá a la sesión" : escapeHtml(ex.equipment)}</small></span></label>`).join("") : `<p class="routine-empty">${query ? "No hay coincidencias con esta búsqueda." : "No hay ejercicios disponibles para este músculo. Añádelos desde Nuevo."}</p>`;
   updateRoutineCount();
 }
 function updateRoutineCount() {
@@ -738,7 +736,7 @@ function renderHistory() {
     const hasDraft = !hasRecord && Object.hasOwn(state.sessions, date);
     return `<button type="button" class="calendar-day${hasRecord ? " has-record" : hasDraft ? " has-draft" : ""}${date === todayISO() ? " is-today" : ""}" data-action="open-date" data-date="${date}" ${hasRecord || hasDraft ? "" : "disabled"} ${date === todayISO() ? 'aria-current="date"' : ""} aria-label="${escapeHtml(formatDate(date))}: ${hasRecord ? "con registro, ver resumen" : hasDraft ? "sin actividad, revisar o eliminar registro" : "sin registro"}"><span>${day}</span>${hasRecord ? '<span class="calendar-dot" aria-hidden="true"></span>' : hasDraft ? '<span class="calendar-dot draft-dot" aria-hidden="true"></span>' : ""}</button>`;
   }).join("");
-  return `<div class="view-header"><div><p class="eyebrow">Tu progreso</p><h1 class="view-title">Historial</h1><div class="subtle">Tocá una fecha para ver el resumen o eliminar su registro.</div></div></div><section class="history-calendar" aria-labelledby="calendar-title"><div class="calendar-heading"><button type="button" class="secondary-button calendar-arrow" data-action="history-prev" aria-label="Mes anterior">‹</button><h2 id="calendar-title">${escapeHtml(label)}</h2><button type="button" class="secondary-button calendar-arrow" data-action="history-next" aria-label="Mes siguiente">›</button></div><div class="calendar-tools"><label for="history-month">Ir al mes</label><input id="history-month" class="date-input" type="month" min="1900-01" max="9999-12" value="${historyMonth}" /><button type="button" class="text-button" data-action="history-current">Este mes</button></div><div class="calendar-weekdays" aria-hidden="true">${["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map(day => `<span>${day}</span>`).join("")}</div><div class="calendar-days">${cells}</div><div class="calendar-legend"><span class="calendar-dot" aria-hidden="true"></span> Con actividad <span class="calendar-dot draft-dot" aria-hidden="true"></span> Sin actividad <span class="calendar-total">${count} ${count === 1 ? "día este mes" : "días este mes"}</span></div>${count ? "" : '<p class="calendar-empty">No hay entrenamientos registrados en este mes.</p>'}</section><p class="note">Los valores sugeridos y los días que solo abrís no cuentan como entrenamiento. Las fechas sin actividad se pueden abrir para eliminar su registro.</p>`;
+  return `<div class="view-header"><div><p class="eyebrow">Tu progreso</p><h1 class="view-title">Historial</h1><div class="subtle">Tocá una fecha para ver el resumen o eliminar su registro.</div></div></div><section class="history-calendar" aria-labelledby="calendar-title"><div class="calendar-heading"><button type="button" class="secondary-button calendar-arrow" data-action="history-prev" aria-label="Mes anterior">‹</button><h2 id="calendar-title">${escapeHtml(label)}</h2><button type="button" class="secondary-button calendar-arrow" data-action="history-next" aria-label="Mes siguiente">›</button></div><div class="calendar-tools"><label for="history-month">Ir al mes</label><input id="history-month" class="date-input" type="month" min="1900-01" max="9999-12" value="${historyMonth}" /><button type="button" class="text-button" data-action="history-current">Este mes</button></div><div class="calendar-weekdays" aria-hidden="true">${["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map(day => `<span>${day}</span>`).join("")}</div><div class="calendar-days">${cells}</div><div class="calendar-legend"><span class="calendar-dot" aria-hidden="true"></span> Con actividad <span class="calendar-dot draft-dot" aria-hidden="true"></span> Sin actividad <span class="calendar-total">${count} ${count === 1 ? "día este mes" : "días este mes"}</span></div>${count ? "" : '<p class="calendar-empty">No hay entrenamientos registrados en este mes.</p>'}</section><p class="note">Los valores sugeridos y los días que solo abrís no cuentan como entrenamiento. Las fechas sin actividad se pueden abrir para eliminar su registro.</p><button type="button" class="secondary-button history-backup" id="backup-open">Respaldo de datos</button>`;
 }
 function openDeleteSession(date) {
   if (!Object.hasOwn(state.sessions, date)) return;
@@ -808,7 +806,7 @@ function openImagePreview(id) {
   const illustration = source
     ? `<img class="preview-illustration" src="${escapeHtml(source)}" alt="Ilustración completa de ${escapeHtml(ex.name)}" />`
     : `<svg class="preview-illustration" viewBox="${tileViews[ex.tile] || tileViews[0]}" role="img" aria-label="Ilustración completa de ${escapeHtml(ex.name)}"><image href="./assets/ejercicios-referencia.png" width="684" height="978" /></svg>`;
-  openOverlay(`<div class="image-preview-heading"><h2 id="sheet-title" lang="en">${escapeHtml(ex.name)}</h2><button type="button" class="image-close" data-close-overlay aria-label="Cerrar ilustración">✕</button></div>${translationMarkup(ex)}${illustration}`, true);
+  openOverlay(`<div class="image-preview-heading"><h2 id="sheet-title" lang="en">${escapeHtml(ex.name)}</h2><button type="button" class="image-close" data-close-overlay aria-label="Cerrar ilustración">✕</button></div>${illustration}`, true);
 }
 function openExerciseForm(id) {
   const ex = id ? getExercise(id) : null;
@@ -818,8 +816,6 @@ function openExerciseForm(id) {
     <form id="exercise-form" data-edit-id="${ex?.id || ""}">
       <label class="field-label" for="exercise-name">Nombre en inglés</label>
       <input id="exercise-name" class="field" name="name" lang="en" required maxlength="90" value="${escapeHtml(ex?.name || "")}" placeholder="Ej. Machine Chest Press" />
-      <label class="field-label" for="exercise-translation">Traducción al español (opcional)</label>
-      <input id="exercise-translation" class="field" name="nameEs" lang="es" maxlength="150" value="${escapeHtml(ex?.nameEs || "")}" placeholder="Ej. Press de pecho en máquina" />
       <label class="field-label" for="exercise-group">Grupo muscular</label>
       <select id="exercise-group" class="field" name="group">${options}</select>
       <label class="field-label" for="exercise-equipment">Equipo o máquina</label>
@@ -1062,7 +1058,6 @@ document.addEventListener("submit", async event => {
     const image = file ? await resizePhoto(file) : existing?.image;
     const exercise = existing || { id: uid(), tile: null };
     exercise.name = form.elements.name.value.trim();
-    exercise.nameEs = form.elements.nameEs.value.trim();
     exercise.group = form.elements.group.value;
     exercise.equipment = form.elements.equipment.value.trim() || "Equipo no indicado";
     if (image) exercise.image = image;
