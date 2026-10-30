@@ -174,7 +174,9 @@ const STARTER_ILLUSTRATIONS = {
 };
 const GROUPS = ["Bíceps", "Tríceps", "Pecho", "Espalda", "Hombros", "Cardio", "Abs", "Piernas", "Glúteos", "Core", "Otros"];
 
-const DB_NAME = "cumpafit";
+const DEMO_MODE = window.CUMPAFIT_DEMO === true || (window.location?.search ? new URLSearchParams(window.location.search).get("demo") === "1" : false);
+const DEMO_DB_NAME = "cumpafit-demo";
+const DB_NAME = DEMO_MODE ? DEMO_DB_NAME : "cumpafit";
 const DB_VERSION = 1;
 const STORE = "data";
 const $ = selector => document.querySelector(selector);
@@ -183,6 +185,53 @@ const todayISO = () => { const date = new Date(); return `${date.getFullYear()}-
 const formatDate = iso => new Intl.DateTimeFormat("es-BO", { day: "numeric", month: "long", year: "numeric" }).format(new Date(`${iso}T12:00:00`));
 const uid = () => globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 const initialState = () => ({ version: 1, exercises: structuredClone(STARTER_EXERCISES), sessions: {}, routines: [] });
+function createDemoState() {
+  const sample = initialState();
+  sample.routines = [
+    { id: "demo-chest", name: "Lunes · Pecho", group: "Pecho", exerciseIds: ["press-pecho-maquina", "press-inclinado-mancuernas", "push-up"] },
+    { id: "demo-back", name: "Miércoles · Espalda", group: "Espalda", exerciseIds: ["jalon-pecho", "remo-sentado-polea", "remo-mancuerna"] },
+    { id: "demo-legs", name: "Viernes · Piernas", group: "Piernas", exerciseIds: ["leg-press", "seated-leg-curl", "leg-extension"] },
+    { id: "demo-cardio", name: "Lunes y viernes · Cardio", group: "Cardio", exerciseIds: ["caminata-cinta", "bicicleta-estatica"] },
+    { id: "demo-abs", name: "Miércoles · Abdominales", group: "Abs", exerciseIds: ["crunch-maquina", "elevacion-rodillas"] },
+  ];
+  const weights = { "press-pecho-maquina": 35, "press-inclinado-mancuernas": 12.5, "push-up": 0,
+    "jalon-pecho": 30, "remo-sentado-polea": 25, "remo-mancuerna": 15,
+    "leg-press": 80, "seated-leg-curl": 25, "leg-extension": 20, "crunch-maquina": 20, "elevacion-rodillas": 0 };
+  const dateISO = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  // Twelve workouts over the preceding 28 local days, including month/year
+  // boundaries. Increasing loads make the existing progress widgets useful.
+  for (let ago = 28; ago >= 1; ago--) {
+    const date = new Date(`${todayISO()}T12:00:00`);
+    date.setDate(date.getDate() - ago);
+    const routineIndex = { 1: 0, 3: 1, 5: 2 }[date.getDay()];
+    if (routineIndex === undefined) continue;
+    const key = dateISO(date);
+    const week = Math.floor((28 - ago) / 7);
+    const ids = [...sample.routines[routineIndex].exerciseIds,
+      ...(routineIndex === 1 ? sample.routines[4].exerciseIds : [routineIndex === 0 ? "caminata-cinta" : "bicicleta-estatica"])];
+    const session = { date: key, selected: ids, completed: {}, sets: {}, finishedAt: new Date(date.getTime() + 60 * 60 * 1000).toISOString() };
+    for (const id of ids) {
+      const exercise = sample.exercises.find(ex => ex.id === id);
+      exercise.favorite = true;
+      session.sets[id] = exercise.group === "Cardio"
+        ? [{ id: uid(), minutes: String(20 + week * 2), ...(id === "caminata-cinta" ? { speedKmh: String(5 + week * 0.2) } : { distanceKm: String(7 + week) }), done: true }]
+        : Array.from({ length: 3 }, (_, index) => ({ id: uid(), kg: weights[id] ? String(weights[id] + week * 2.5) : "", reps: String(12 - index), done: true }));
+      if (id === "jalon-pecho" && week === 3) session.sets[id].push({ id: uid(), kg: "25", reps: "12", done: true, dropSet: true });
+    }
+    sample.sessions[key] = session;
+  }
+  // An editable session shows completed work against planned exercises/sets.
+  const today = todayISO();
+  const ids = [...sample.routines[0].exerciseIds, "caminata-cinta"];
+  sample.sessions[today] = { date: today, selected: ids, completed: {}, sets: {} };
+  ids.forEach((id, index) => {
+    const exercise = sample.exercises.find(ex => ex.id === id);
+    sample.sessions[today].sets[id] = exercise.group === "Cardio"
+      ? [{ id: uid(), minutes: "25", speedKmh: "5.6", done: false, prefilled: true }]
+      : Array.from({ length: 3 }, (_, row) => ({ id: uid(), kg: weights[id] ? String(weights[id] + 7.5) : "", reps: String(12 - row), done: index < 2, ...(index < 2 ? {} : { prefilled: true }) }));
+  });
+  return sample;
+}
 function mergeStarterExercises(snapshot) {
   const existingIds = new Set(snapshot.exercises.map(ex => ex.id));
   const missing = STARTER_EXERCISES.filter(ex => !existingIds.has(ex.id));
@@ -242,6 +291,7 @@ let catalogFilter = "Todos";
 let catalogSearch = "";
 let saveTimer;
 let saveChain = Promise.resolve();
+let resettingDemo = false;
 let toastTimer;
 let undoAction;
 const sessionHistoryOpen = new Set();
@@ -260,7 +310,7 @@ function openDB() {
 function readState() {
   return new Promise((resolve, reject) => {
     const request = db.transaction(STORE, "readonly").objectStore(STORE).get("main");
-    request.onsuccess = () => resolve(request.result || initialState());
+    request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });
 }
@@ -281,11 +331,53 @@ async function persistNow() {
   await write;
 }
 function persist() {
+  if (resettingDemo) return;
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     const snapshot = structuredClone(state);
     saveChain = saveChain.then(() => writeState(snapshot)).catch(error => { console.error(error); showToast("No se pudo guardar el registro"); });
   }, 120);
+}
+async function resetDemo() {
+  if (!DEMO_MODE || db?.name !== DEMO_DB_NAME || resettingDemo) return false;
+  resettingDemo = true;
+  clearTimeout(saveTimer);
+  const button = $('#demo-banner [data-action="reset-demo"]');
+  button.disabled = true;
+  try {
+    await saveChain;
+    const sample = createDemoState();
+    // One transaction clears only the demo store and installs the fresh seed.
+    // Keeping the DB open also avoids deleteDatabase blocking on another tab.
+    const write = saveChain.then(() => new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE, "readwrite");
+      const store = transaction.objectStore(STORE);
+      store.clear();
+      store.put(sample, "main");
+      transaction.oncomplete = resolve;
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error || new Error("Reinicio interrumpido"));
+    }));
+    saveChain = write.catch(error => console.error(error));
+    await write;
+    state = sample;
+    activeDate = observedToday = todayISO();
+    historyMonth = activeDate.slice(0, 7);
+    tab = "today";
+    expandedId = state.sessions[activeDate].selected[0];
+    sessionHistoryOpen.clear(); catalogDetailsOpen.clear();
+    catalogFilter = "Todos"; catalogSearch = "";
+    closeOverlay(); render(); window.scrollTo(0, 0);
+    showToast("Demo reiniciada / Demo reset");
+    return true;
+  } catch (error) {
+    console.error(error);
+    showToast("No se pudo reiniciar la demo. Intenta de nuevo.");
+    return false;
+  } finally {
+    resettingDemo = false;
+    button.disabled = false;
+  }
 }
 function ensureSession(date = activeDate) {
   if (state.sessions[date]) return state.sessions[date];
@@ -775,11 +867,11 @@ function renderHistory() {
     const hasDraft = !hasRecord && Object.hasOwn(state.sessions, date);
     return `<button type="button" class="calendar-day${hasRecord ? " has-record" : hasDraft ? " has-draft" : ""}${date === todayISO() ? " is-today" : ""}" data-action="open-date" data-date="${date}" ${hasRecord || hasDraft ? "" : "disabled"} ${date === todayISO() ? 'aria-current="date"' : ""} aria-label="${escapeHtml(formatDate(date))}: ${hasRecord ? "con registro, ver resumen" : hasDraft ? "sin actividad, revisar o eliminar registro" : "sin registro"}"><span>${day}</span>${hasRecord ? '<span class="calendar-dot" aria-hidden="true"></span>' : hasDraft ? '<span class="calendar-dot draft-dot" aria-hidden="true"></span>' : ""}</button>`;
   }).join("");
-  return `<div class="view-header"><div><p class="eyebrow">Tu progreso</p><h1 class="view-title">Historial</h1><div class="subtle">Tocá una fecha para ver el resumen o eliminar su registro.</div></div></div><section class="history-calendar" aria-labelledby="calendar-title"><div class="calendar-heading"><button type="button" class="secondary-button calendar-arrow" data-action="history-prev" aria-label="Mes anterior">‹</button><h2 id="calendar-title">${escapeHtml(label)}</h2><button type="button" class="secondary-button calendar-arrow" data-action="history-next" aria-label="Mes siguiente">›</button></div><div class="calendar-tools"><label for="history-month">Ir al mes</label><input id="history-month" class="date-input" type="month" min="1900-01" max="9999-12" value="${historyMonth}" /><button type="button" class="text-button" data-action="history-current">Este mes</button></div><div class="calendar-weekdays" aria-hidden="true">${["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map(day => `<span>${day}</span>`).join("")}</div><div class="calendar-days">${cells}</div><div class="calendar-legend"><span class="calendar-dot" aria-hidden="true"></span> Con actividad <span class="calendar-dot draft-dot" aria-hidden="true"></span> Sin actividad <span class="calendar-total">${count} ${count === 1 ? "día este mes" : "días este mes"}</span></div>${count ? "" : '<p class="calendar-empty">No hay entrenamientos registrados en este mes.</p>'}</section><p class="note">Los valores sugeridos y los días que solo abrís no cuentan como entrenamiento. Las fechas sin actividad se pueden abrir para eliminar su registro.</p><button type="button" class="secondary-button history-backup" id="backup-open">Respaldo de datos</button>`;
+  return `<div class="view-header"><div><p class="eyebrow">Tu progreso</p><h1 class="view-title">Historial</h1><div class="subtle">Tocá una fecha para ver el resumen o eliminar su registro.</div></div></div><section class="history-calendar" aria-labelledby="calendar-title"><div class="calendar-heading"><button type="button" class="secondary-button calendar-arrow" data-action="history-prev" aria-label="Mes anterior">‹</button><h2 id="calendar-title">${escapeHtml(label)}</h2><button type="button" class="secondary-button calendar-arrow" data-action="history-next" aria-label="Mes siguiente">›</button></div><div class="calendar-tools"><label for="history-month">Ir al mes</label><input id="history-month" class="date-input" type="month" min="1900-01" max="9999-12" value="${historyMonth}" /><button type="button" class="text-button" data-action="history-current">Este mes</button></div><div class="calendar-weekdays" aria-hidden="true">${["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map(day => `<span>${day}</span>`).join("")}</div><div class="calendar-days">${cells}</div><div class="calendar-legend"><span class="calendar-dot" aria-hidden="true"></span> Con actividad <span class="calendar-dot draft-dot" aria-hidden="true"></span> Sin actividad <span class="calendar-total">${count} ${count === 1 ? "día este mes" : "días este mes"}</span></div>${count ? "" : '<p class="calendar-empty">No hay entrenamientos registrados en este mes.</p>'}</section><p class="note">Los valores sugeridos y los días que solo abrís no cuentan como entrenamiento. Las fechas sin actividad se pueden abrir para eliminar su registro.</p>${DEMO_MODE ? "" : '<button type="button" class="secondary-button history-backup" id="backup-open">Respaldo de datos</button>'}`;
 }
 function openDeleteSession(date) {
   if (!Object.hasOwn(state.sessions, date)) return;
-  openOverlay(`<h2 id="sheet-title">Eliminar registro</h2><p>¿Querés eliminar el registro del <strong>${escapeHtml(formatDate(date))}</strong>? Se borrarán sus series, pesos, repeticiones y marcas de realizado. Tus rutinas y las demás sesiones se conservarán.</p><p>Esta acción no se puede deshacer. Puedes exportar un respaldo antes de eliminarla.</p><div class="sheet-buttons"><button type="button" class="secondary-button" data-close-overlay>Cancelar</button><button type="button" class="danger-button" data-action="confirm-delete-session" data-date="${date}">Sí, eliminar registro</button></div>`);
+  openOverlay(`<h2 id="sheet-title">Eliminar registro</h2><p>¿Querés eliminar el registro del <strong>${escapeHtml(formatDate(date))}</strong>? Se borrarán sus series, pesos, repeticiones y marcas de realizado. Tus rutinas y las demás sesiones se conservarán.</p><p>${DEMO_MODE ? "Puedes recuperar los datos de ejemplo con Reiniciar demo." : "Esta acción no se puede deshacer. Puedes exportar un respaldo antes de eliminarla."}</p><div class="sheet-buttons"><button type="button" class="secondary-button" data-close-overlay>Cancelar</button><button type="button" class="danger-button" data-action="confirm-delete-session" data-date="${date}">Sí, eliminar registro</button></div>`);
 }
 async function setSessionFinished(date, finished) {
   const session = state.sessions[date];
@@ -851,7 +943,7 @@ function openExerciseForm(id) {
   const ex = id ? getExercise(id) : null;
   const options = GROUPS.map(group => `<option value="${group}" ${ex?.group === group ? "selected" : ""}>${group}</option>`).join("");
   openOverlay(`<h2 id="sheet-title">${ex ? "Editar ejercicio" : "Nuevo ejercicio"}</h2>
-    <p>${ex ? "Actualiza el nombre, equipo o imagen del movimiento." : "Añade una imagen para reconocerlo rápidamente en el gimnasio."}</p>
+    <p>${DEMO_MODE ? "Prueba los cambios en este navegador con datos de ejemplo." : ex ? "Actualiza el nombre, equipo o imagen del movimiento." : "Añade una imagen para reconocerlo rápidamente en el gimnasio."}</p>
     <form id="exercise-form" data-edit-id="${ex?.id || ""}">
       <label class="field-label" for="exercise-name">Nombre en inglés</label>
       <input id="exercise-name" class="field" name="name" lang="en" required maxlength="90" value="${escapeHtml(ex?.name || "")}" placeholder="Ej. Machine Chest Press" />
@@ -859,13 +951,14 @@ function openExerciseForm(id) {
       <select id="exercise-group" class="field" name="group">${options}</select>
       <label class="field-label" for="exercise-equipment">Equipo o máquina</label>
       <input id="exercise-equipment" class="field" name="equipment" maxlength="90" value="${escapeHtml(ex?.equipment || "")}" placeholder="Ej. Technogym · Polea" />
-      <label class="field-label" for="exercise-photo">${ex ? "Cambiar imagen (opcional)" : "Imagen del ejercicio"}</label>
-      <input id="exercise-photo" class="file-control" type="file" accept="image/*" ${ex ? "" : "required"} />
+      ${DEMO_MODE ? "" : `<label class="field-label" for="exercise-photo">${ex ? "Cambiar imagen (opcional)" : "Imagen del ejercicio"}</label>
+      <input id="exercise-photo" class="file-control" type="file" accept="image/*" ${ex ? "" : "required"} />`}
       <div class="sheet-buttons"><button type="button" class="secondary-button" data-close-overlay>Cancelar</button><button type="submit" class="primary-button">Guardar ejercicio</button></div>
       ${ex ? `<button type="button" class="remove-from-day" style="margin-top:16px" data-action="archive-exercise" data-id="${ex.id}">${ex.archived ? "Restaurar ejercicio" : "Archivar ejercicio"}</button>` : ""}
     </form>`);
 }
 function openBackup() {
+  if (DEMO_MODE) return;
   openOverlay(`<h2 id="sheet-title">Respaldo de datos</h2><p>Tus rutinas, sesiones e imágenes añadidas se guardan en este navegador. Exporta una copia para poder recuperarlas.</p><button type="button" class="backup-action" data-action="export"><span>Exportar respaldo<small>Descarga ejercicios, rutinas y sesiones en JSON</small></span><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v3h16v-3"/></svg></button><button type="button" class="backup-action" data-action="import"><span>Importar respaldo<small>Reemplaza los datos de este dispositivo</small></span><svg viewBox="0 0 24 24"><path d="M12 20V8m0 0 4 4m-4-4-4 4M4 4h16v3"/></svg></button><div class="sheet-buttons"><button type="button" class="secondary-button" data-close-overlay>Cerrar</button></div>`);
 }
 function addToSession(id) {
@@ -888,6 +981,7 @@ function removeFromSession(id) {
   persist();
 }
 async function resizePhoto(file) {
+  if (DEMO_MODE) return;
   let image;
   if (typeof createImageBitmap === "function") {
     try { image = await createImageBitmap(file); } catch { /* Use the browser image decoder below. */ }
@@ -908,6 +1002,7 @@ async function resizePhoto(file) {
   return canvas.toDataURL("image/jpeg", .82);
 }
 async function exportBackup() {
+  if (DEMO_MODE) return;
   await persistNow();
   const blob = new Blob([JSON.stringify({ ...state, exportedAt: new Date().toISOString() }, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
@@ -920,6 +1015,7 @@ async function exportBackup() {
   showToast("Respaldo descargado");
 }
 async function importBackup(file) {
+  if (DEMO_MODE) return;
   try {
     const parsed = JSON.parse(await file.text());
     if (parsed.version !== 1 || !Array.isArray(parsed.exercises) || !parsed.sessions || typeof parsed.sessions !== "object") throw new Error("Formato no válido");
@@ -950,6 +1046,8 @@ document.addEventListener("click", async event => {
   const button = event.target.closest("[data-action]");
   if (!button) return;
   const { action, id } = button.dataset;
+  if (action === "reset-demo") { await resetDemo(); return; }
+  if (DEMO_MODE && ["export", "import"].includes(action)) return;
   if (action === "undo-removal") { const undo = undoAction; undoAction = null; clearTimeout(toastTimer); $("#toast").classList.remove("show"); if (undo) undo(); return; }
   if (action === "toggle-session-history") {
     const key = `${activeDate}:${id}`;
@@ -1097,7 +1195,7 @@ document.addEventListener("change", event => {
     updateRoutineCount(); return;
   }
   if (event.target.id === "session-date") { activeDate = event.target.value || todayISO(); expandedId = ensureSession().selected[0] || ""; render(); return; }
-  if (event.target.id === "import-file") { if (event.target.files?.[0]) importBackup(event.target.files[0]); event.target.value = ""; return; }
+  if (event.target.id === "import-file") { if (!DEMO_MODE && event.target.files?.[0]) importBackup(event.target.files[0]); event.target.value = ""; return; }
   if (event.target.matches("[data-set-done]")) {
     const set = ensureSession().sets[event.target.dataset.ex]?.find(item => item.id === event.target.dataset.setId);
     if (!set) return;
@@ -1128,8 +1226,8 @@ document.addEventListener("submit", async event => {
   try {
     const id = form.dataset.editId;
     const existing = id ? getExercise(id) : null;
-    const file = $("#exercise-photo").files?.[0];
-    if (!existing && !file) throw new Error("Falta imagen");
+    const file = DEMO_MODE ? undefined : $("#exercise-photo").files?.[0];
+    if (!DEMO_MODE && !existing && !file) throw new Error("Falta imagen");
     const image = file ? await resizePhoto(file) : existing?.image;
     const exercise = existing || { id: uid(), tile: null };
     exercise.name = form.elements.name.value.trim();
@@ -1158,7 +1256,7 @@ setInterval(syncSessionDay, 1000);
 // Refresh before an interaction can edit yesterday's session after a suspended timer.
 for (const eventType of ["click", "input", "change", "submit"]) {
   document.addEventListener(eventType, event => {
-    if (syncSessionDay()) {
+    if (resettingDemo || syncSessionDay()) {
       event.preventDefault();
       event.stopImmediatePropagation();
     }
@@ -1166,6 +1264,7 @@ for (const eventType of ["click", "input", "change", "submit"]) {
 }
 
 async function startOfflineImages() {
+  if (DEMO_MODE) return;
   if (!("serviceWorker" in navigator) || !window.isSecureContext) return;
   let registration, retryTimer;
   const resume = () => {
@@ -1207,15 +1306,20 @@ async function startOfflineImages() {
 
 async function init() {
   try {
+    // If the safety bootstrap failed to load, a demo URL must never fall back
+    // to opening the real database or starting network features.
+    if (DEMO_MODE && window.CUMPAFIT_DEMO !== true) throw new Error("Demo safety bootstrap unavailable");
     db = await openDB();
-    state = await readState();
+    const savedState = await readState();
+    state = savedState || (DEMO_MODE ? createDemoState() : initialState());
     if (!Array.isArray(state.exercises) || !state.sessions) state = initialState();
     const needsRoutines = !Array.isArray(state.routines);
     if (needsRoutines) state.routines = [];
     const addedExercises = mergeStarterExercises(state);
     const renamedExercises = migrateExerciseNames(state);
-    if (addedExercises || renamedExercises || needsRoutines) await writeState(structuredClone(state));
+    if ((DEMO_MODE && !savedState) || addedExercises || renamedExercises || needsRoutines) await writeState(structuredClone(state));
     activeDate = observedToday = todayISO();
+    if (DEMO_MODE) expandedId = state.sessions[activeDate]?.selected[0] || "";
     render();
     startOfflineImages().catch(console.warn);
   } catch (error) {

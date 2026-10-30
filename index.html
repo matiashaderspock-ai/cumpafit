@@ -6,15 +6,20 @@
     <meta name="theme-color" content="#111b25" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Cumpafit" />
-    <link rel="apple-touch-icon" sizes="180x180" href="./assets/apple-touch-icon.png?v=43" />
+    <link rel="apple-touch-icon" sizes="180x180" href="./assets/apple-touch-icon.png?v=44" />
     <meta name="description" content="Tu catálogo de ejercicios y registro de entrenamiento." />
     <title>Cumpafit · Rutinas</title>
-    <link rel="icon" type="image/svg+xml" href="./assets/icon.svg?v=43" />
-    <link rel="manifest" href="./manifest.webmanifest?v=43" />
-    <link rel="stylesheet" href="./styles.css?v=43" />
-    <script src="./app.js?v=43" defer></script>
+    <link rel="icon" type="image/svg+xml" href="./assets/icon.svg?v=44" />
+    <link rel="manifest" href="./manifest.webmanifest?v=44" />
+    <script src="./demo-mode.js?v=44"></script>
+    <link rel="stylesheet" href="./styles.css?v=44" />
+    <script src="./app.js?v=44" defer></script>
   </head>
   <body>
+    <aside id="demo-banner" class="demo-banner" aria-label="Demo mode / Modo demo">
+      <div><strong lang="en">Demo: sample data, nothing is saved to anyone's account</strong><span lang="es">Demo: datos de ejemplo, nada se guarda en la cuenta de nadie.</span></div>
+      <button type="button" data-action="reset-demo"><span lang="en">Reset demo</span><span lang="es">Reiniciar demo</span></button>
+    </aside>
     <div id="app" class="app-shell">
       <main id="view" tabindex="-1"></main>
       <p id="offline-images-status" class="offline-images-status" role="status" aria-live="polite" hidden></p>

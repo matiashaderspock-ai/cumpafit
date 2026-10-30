@@ -147,3 +147,13 @@ main:has(.catalog-return){padding-bottom:100px}
 .toast.show:has(button){display:flex;align-items:center;gap:12px;pointer-events:auto;white-space:normal;max-width:calc(100vw - 24px)}
 .toast button{min-height:44px;border:0;background:transparent;color:#f5bd86;font-weight:800;padding:4px 6px}
 @media(min-width:680px){.catalog-return{bottom:64px}.toast.show:has(button){bottom:80px}}
+
+.demo-banner{display:none}
+.demo-mode .demo-banner{position:sticky;top:0;z-index:40;display:flex;align-items:center;justify-content:center;gap:16px;padding:calc(12px + env(safe-area-inset-top)) 16px 12px;background:#ffedba;color:#35240c;border-bottom:2px solid #b16b17;font-size:13px;line-height:1.4}
+.demo-banner strong,.demo-banner span{display:block}
+.demo-banner div>span{margin-top:3px;font-size:12px}
+.demo-banner button{flex:none;min-height:44px;max-width:120px;border:1px solid #845011;border-radius:9px;background:#fff9e9;color:#35240c;padding:8px 12px;font-weight:750;font-size:12px}
+.demo-banner button span+span{font-size:11px;font-weight:500}
+.demo-mode .overlay{top:var(--demo-banner-height,150px)}
+.demo-mode .sheet{max-height:calc(100dvh - var(--demo-banner-height,150px) - 44px)}
+@media(max-width:370px){.demo-mode .demo-banner{gap:9px;padding-left:12px;padding-right:12px;font-size:12px}.demo-banner button{max-width:99px;padding:8px}}
