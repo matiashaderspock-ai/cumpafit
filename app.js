@@ -175,6 +175,92 @@ const STARTER_ILLUSTRATIONS = {
 const GROUPS = ["Bíceps", "Tríceps", "Pecho", "Espalda", "Hombros", "Cardio", "Abs", "Piernas", "Glúteos", "Core", "Otros"];
 
 const DEMO_MODE = window.CUMPAFIT_DEMO === true || (window.location?.search ? new URLSearchParams(window.location.search).get("demo") === "1" : false);
+// Keep normal UI copy and canonical storage keys unchanged.
+const demoText = (spanish, english) => DEMO_MODE ? english : spanish;
+// Display labels only: group IDs and existing demo edits stay in storage.
+const DEMO_LABELS = Object.freeze({
+  "Bíceps": "Biceps",
+  "Tríceps": "Triceps",
+  "Pecho": "Chest",
+  "Espalda": "Back",
+  "Hombros": "Shoulders",
+  "Piernas": "Legs",
+  "Glúteos": "Glutes",
+  "Otros": "Other",
+  "Equipo no indicado": "Equipment not specified",
+  "Todos": "All",
+  "Archivados": "Archived",
+  "Lunes · Pecho": "Monday · Chest",
+  "Miércoles · Espalda": "Wednesday · Back",
+  "Viernes · Piernas": "Friday · Legs",
+  "Lunes y viernes · Cardio": "Monday and Friday · Cardio",
+  "Miércoles · Abdominales": "Wednesday · Abs",
+  "Banco inclinado · Mancuernas": "Incline bench · Dumbbells",
+  "Polea alta · Cuerda": "High cable · Rope",
+  "Mancuernas": "Dumbbells",
+  "Polea · Cuerda": "Cable · Rope",
+  "Máquina predicador": "Preacher curl machine",
+  "Paralelas · Peso corporal": "Parallel bars · Bodyweight",
+  "Máquina de press de pecho": "Chest press machine",
+  "Poleas dobles": "Dual cables",
+  "Polea alta · Barra": "High cable · Bar",
+  "Polea baja · Agarrador": "Low cable · Handle",
+  "Banco plano · Mancuerna": "Flat bench · Dumbbell",
+  "Máquina de press de hombros": "Shoulder press machine",
+  "Cinta de correr": "Treadmill",
+  "Bicicleta estática": "Stationary bike",
+  "Máquina de remo": "Rowing machine",
+  "Máquina abdominal": "Abdominal machine",
+  "Colchoneta · Peso corporal": "Mat · Bodyweight",
+  "Silla romana · Peso corporal": "Captain’s chair · Bodyweight",
+  "Máquina pec deck": "Pec deck machine",
+  "Máquina pec deck · Deltoides posteriores": "Pec deck machine · Rear deltoids",
+  "Polea baja · Asa individual · Banco": "Low cable · Single handle · Bench",
+  "Máquina de remo · Apoyo de pecho": "Row machine · Chest support",
+  "Polea alta · Barra recta": "High cable · Straight bar",
+  "Barra recta": "Straight bar",
+  "Banco Scott · Barra EZ": "Preacher bench · EZ bar",
+  "Disco": "Weight plate",
+  "Máquina Technogym": "Technogym machine",
+  "Máquina con apoyos para codos": "Machine with elbow pads",
+  "Máquina de palancas": "Lever machine",
+  "Máquina abductora": "Hip abduction machine",
+  "Máquina aductora": "Hip adduction machine",
+  "Cinta curva autopropulsada · Technogym Skillmill": "Self-powered curved treadmill · Technogym Skillmill",
+  "Balón medicinal · Zona de wall ball": "Medicine ball · Wall ball area",
+  "Banco olímpico plano · Barra": "Flat Olympic bench · Barbell",
+  "Banco olímpico inclinado · Barra": "Incline Olympic bench · Barbell",
+  "Banco a 45° con apoyo de cadera y tobillos": "45-degree bench with hip and ankle support",
+  "Máquina dedicada de hip thrust con discos": "Plate-loaded hip thrust machine",
+  "Barra multiagarre superior · Cable Station 5 · Peso corporal": "Overhead multi-grip bar · Cable Station 5 · Bodyweight",
+  "Máquina con apoyo individual para cada codo": "Machine with individual elbow pads",
+  "Peso corporal · Suelo": "Bodyweight · Floor",
+  "Banco plano · Mancuernas": "Flat bench · Dumbbells",
+  "Poleas altas · Agarradores individuales": "High cables · Individual handles",
+  "Poleas bajas · Agarradores individuales": "Low cables · Individual handles",
+  "Polea a la altura del pecho · Agarrador individual": "Chest-height cable · Single handle",
+  "Paralelas · Peso corporal · Torso inclinado hacia delante": "Parallel bars · Bodyweight · Forward torso lean",
+  "Polea alta · Agarrador en V": "High cable · V handle",
+  "Barra · Discos": "Barbell · Weight plates",
+  "Polea baja · Barra recta o EZ": "Low cable · Straight or EZ bar",
+  "Banco Scott · Mancuerna": "Preacher bench · Dumbbell",
+  "Mancuerna · Banco": "Dumbbell · Bench",
+  "Barra Z": "EZ bar",
+  "Barra · Banco plano": "Barbell · Flat bench",
+  "Mancuernas · Banco plano": "Dumbbells · Flat bench",
+  "Mancuernas · Banco inclinado": "Dumbbells · Incline bench",
+  "Barra de dominadas": "Pull-up bar",
+  "Barra horizontal baja · Smith": "Low horizontal bar · Smith machine",
+  "Mancuernas · Banco con respaldo": "Dumbbells · Bench with back support",
+  "Barra": "Barbell",
+  "Polea baja · Asa individual": "Low cable · Single handle",
+  "Colchoneta": "Mat",
+  "Cuerda para saltar": "Jump rope",
+  "Mancuernas · Banco": "Dumbbells · Bench",
+  "Panatta · Máquina de pesas con selector": "Panatta · Selectorized weight machine",
+});
+const demoLabel = value => DEMO_MODE && Object.hasOwn(DEMO_LABELS, value) ? DEMO_LABELS[value] : value;
+const DISPLAY_LOCALE = DEMO_MODE ? "en-US" : "es-BO";
 const DEMO_DB_NAME = "cumpafit-demo";
 const DB_NAME = DEMO_MODE ? DEMO_DB_NAME : "cumpafit";
 const DB_VERSION = 1;
@@ -182,17 +268,20 @@ const STORE = "data";
 const $ = selector => document.querySelector(selector);
 const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
 const todayISO = () => { const date = new Date(); return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`; };
-const formatDate = iso => new Intl.DateTimeFormat("es-BO", { day: "numeric", month: "long", year: "numeric" }).format(new Date(`${iso}T12:00:00`));
+const formatDate = iso => new Intl.DateTimeFormat(DISPLAY_LOCALE, { day: "numeric", month: "long", year: "numeric" }).format(new Date(`${iso}T12:00:00`));
 const uid = () => globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 const initialState = () => ({ version: 1, exercises: structuredClone(STARTER_EXERCISES), sessions: {}, routines: [] });
 function createDemoState() {
   const sample = initialState();
+  sample.exercises = sample.exercises.map(({ legacyName, legacyEquipment, ...exercise }) => ({
+    ...exercise, nameEs: exercise.name, equipment: demoLabel(exercise.equipment),
+  }));
   sample.routines = [
-    { id: "demo-chest", name: "Lunes · Pecho", group: "Pecho", exerciseIds: ["press-pecho-maquina", "press-inclinado-mancuernas", "push-up"] },
-    { id: "demo-back", name: "Miércoles · Espalda", group: "Espalda", exerciseIds: ["jalon-pecho", "remo-sentado-polea", "remo-mancuerna"] },
-    { id: "demo-legs", name: "Viernes · Piernas", group: "Piernas", exerciseIds: ["leg-press", "seated-leg-curl", "leg-extension"] },
-    { id: "demo-cardio", name: "Lunes y viernes · Cardio", group: "Cardio", exerciseIds: ["caminata-cinta", "bicicleta-estatica"] },
-    { id: "demo-abs", name: "Miércoles · Abdominales", group: "Abs", exerciseIds: ["crunch-maquina", "elevacion-rodillas"] },
+    { id: "demo-chest", name: "Monday · Chest", group: "Pecho", exerciseIds: ["press-pecho-maquina", "press-inclinado-mancuernas", "push-up"] },
+    { id: "demo-back", name: "Wednesday · Back", group: "Espalda", exerciseIds: ["jalon-pecho", "remo-sentado-polea", "remo-mancuerna"] },
+    { id: "demo-legs", name: "Friday · Legs", group: "Piernas", exerciseIds: ["leg-press", "seated-leg-curl", "leg-extension"] },
+    { id: "demo-cardio", name: "Monday and Friday · Cardio", group: "Cardio", exerciseIds: ["caminata-cinta", "bicicleta-estatica"] },
+    { id: "demo-abs", name: "Wednesday · Abs", group: "Abs", exerciseIds: ["crunch-maquina", "elevacion-rodillas"] },
   ];
   const weights = { "press-pecho-maquina": 35, "press-inclinado-mancuernas": 12.5, "push-up": 0,
     "jalon-pecho": 30, "remo-sentado-polea": 25, "remo-mancuerna": 15,
@@ -260,10 +349,10 @@ function migrateExerciseNames(snapshot) {
   return changed;
 }
 const normalizeSearch = value => String(value ?? "").normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase("es");
-const exerciseMatches = (ex, query) => normalizeSearch(`${ex.name} ${ex.nameEs || ""} ${ex.equipment} ${ex.group}`).includes(normalizeSearch(query));
+const exerciseMatches = (ex, query) => normalizeSearch(DEMO_MODE ? `${ex.name} ${demoLabel(ex.equipment)} ${demoLabel(ex.group)}` : `${ex.name} ${ex.nameEs || ""} ${ex.equipment} ${ex.group}`).includes(normalizeSearch(query));
 const favoritesFirst = exercises => exercises.slice().sort((a, b) => Number(b.favorite === true) - Number(a.favorite === true));
 function favoriteButton(ex) {
-  return `<button type="button" class="favorite-button${ex.favorite ? " is-favorite" : ""}" data-action="toggle-favorite" data-id="${escapeHtml(ex.id)}" aria-pressed="${ex.favorite === true}" aria-label="${ex.favorite ? "Quitar de favoritos" : "Añadir a favoritos"}: ${escapeHtml(ex.name)}"><svg class="favorite-star" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.78 5.63L21 9.54l-4.5 4.39 1.06 6.2L12 17.2l-5.56 2.93 1.06-6.2L3 9.54l6.22-.91L12 3Z"/></svg></button>`;
+  return `<button type="button" class="favorite-button${ex.favorite ? " is-favorite" : ""}" data-action="toggle-favorite" data-id="${escapeHtml(ex.id)}" aria-pressed="${ex.favorite === true}" aria-label="${ex.favorite ? demoText("Quitar de favoritos", "Remove from favorites") : demoText("Añadir a favoritos", "Add to favorites")}: ${escapeHtml(ex.name)}"><svg class="favorite-star" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.78 5.63L21 9.54l-4.5 4.39 1.06 6.2L12 17.2l-5.56 2.93 1.06-6.2L3 9.54l6.22-.91L12 3Z"/></svg></button>`;
 }
 async function toggleExerciseFavorite(id) {
   const ex = getExercise(id);
@@ -273,11 +362,11 @@ async function toggleExerciseFavorite(id) {
   ex.favorite = ex.favorite !== true;
   try { await persistNow(); } catch {
     if (hadFavorite) ex.favorite = before; else delete ex.favorite;
-    showToast("No se pudo guardar el favorito");
+    showToast(demoText("No se pudo guardar el favorito", "Could not save favorite"));
     return false;
   }
   render();
-  showToast(ex.favorite ? "Favorito guardado · aparece primero en su categoría" : "Ejercicio quitado de favoritos");
+  showToast(ex.favorite ? demoText("Favorito guardado · aparece primero en su categoría", "Favorite saved · appears first in its category") : demoText("Ejercicio quitado de favoritos", "Exercise removed from favorites"));
   return true;
 }
 
@@ -335,7 +424,7 @@ function persist() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     const snapshot = structuredClone(state);
-    saveChain = saveChain.then(() => writeState(snapshot)).catch(error => { console.error(error); showToast("No se pudo guardar el registro"); });
+    saveChain = saveChain.then(() => writeState(snapshot)).catch(error => { console.error(error); showToast(demoText("No se pudo guardar el registro", "Could not save workout")); });
   }, 120);
 }
 async function resetDemo() {
@@ -368,11 +457,11 @@ async function resetDemo() {
     sessionHistoryOpen.clear(); catalogDetailsOpen.clear();
     catalogFilter = "Todos"; catalogSearch = "";
     closeOverlay(); render(); window.scrollTo(0, 0);
-    showToast("Demo reiniciada / Demo reset");
+    showToast("Demo reset");
     return true;
   } catch (error) {
     console.error(error);
-    showToast("No se pudo reiniciar la demo. Intenta de nuevo.");
+    showToast(demoText("No se pudo reiniciar la demo. Intenta de nuevo.", "Could not reset the demo. Try again."));
     return false;
   } finally {
     resettingDemo = false;
@@ -409,8 +498,8 @@ function usesSpeed(ex) {
 }
 function cardioMetric(ex) {
   return usesSpeed(ex)
-    ? { field: "speedKmh", label: "Velocidad km/h", heading: "Vel. km/h", unit: "km/h" }
-    : { field: "distanceKm", label: "Distancia km", heading: "Dist. km", unit: "km" };
+    ? { field: "speedKmh", label: demoText("Velocidad km/h", "Speed km/h"), heading: demoText("Vel. km/h", "Speed km/h"), unit: "km/h" }
+    : { field: "distanceKm", label: demoText("Distancia km", "Distance km"), heading: demoText("Dist. km", "Dist. km"), unit: "km" };
 }
 function cardioValue(ex, set) {
   if (!usesSpeed(ex)) return set.distanceKm;
@@ -454,13 +543,13 @@ function isExerciseComplete(session, id) {
 }
 function imageMarkup(ex, className = "exercise-image") {
   const source = ex.image || STARTER_ILLUSTRATIONS[ex.id];
-  if (source) return `<img class="${className}${ex.image ? "" : " starter-illustration"}" src="${escapeHtml(source)}" alt="Ilustración de ${escapeHtml(ex.name)}" />`;
-  if (!Number.isInteger(ex.tile)) return `<div class="${className} image-pending" role="img" aria-label="Imagen pendiente de ${escapeHtml(ex.name)}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8" cy="9" r="1.5"/><path d="m4 17 5-5 4 4 3-3 4 4"/></svg><span>Imagen pendiente</span></div>`;
-  return `<div class="${className} tile-image tile-${ex.tile}" role="img" aria-label="Ilustración de ${escapeHtml(ex.name)}"></div>`;
+  if (source) return `<img class="${className}${ex.image ? "" : " starter-illustration"}" src="${escapeHtml(source)}" alt="${demoText("Ilustración de", "Illustration of")} ${escapeHtml(ex.name)}" />`;
+  if (!Number.isInteger(ex.tile)) return `<div class="${className} image-pending" role="img" aria-label="${demoText("Imagen pendiente de", "Image pending for")} ${escapeHtml(ex.name)}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8" cy="9" r="1.5"/><path d="m4 17 5-5 4 4 3-3 4 4"/></svg><span>${demoText("Imagen pendiente", "Image pending")}</span></div>`;
+  return `<div class="${className} tile-image tile-${ex.tile}" role="img" aria-label="${demoText("Ilustración de", "Illustration of")} ${escapeHtml(ex.name)}"></div>`;
 }
 function catalogImageButton(ex) {
   if (!ex.image && !STARTER_ILLUSTRATIONS[ex.id] && !Number.isInteger(ex.tile)) return imageMarkup(ex, "catalog-image");
-  return `<button type="button" class="catalog-image-button" data-action="view-image" data-id="${escapeHtml(ex.id)}" aria-label="Ver ilustración completa de ${escapeHtml(ex.name)}">${imageMarkup(ex, "catalog-image")}<span class="zoom-cue" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/></svg></span></button>`;
+  return `<button type="button" class="catalog-image-button" data-action="view-image" data-id="${escapeHtml(ex.id)}" aria-label="${demoText("Ver ilustración completa de", "View full illustration of")} ${escapeHtml(ex.name)}">${imageMarkup(ex, "catalog-image")}<span class="zoom-cue" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/></svg></span></button>`;
 }
 function lastPerformance(id, beforeDate = activeDate) {
   const cardio = getExercise(id)?.group === "Cardio";
@@ -471,19 +560,19 @@ function lastPerformance(id, beforeDate = activeDate) {
       const done = sets.filter(set => set.done && decimalNumber(set.minutes) > 0);
       if (done.length) {
         const last = done.at(-1);
-        const minutes = new Intl.NumberFormat("es-BO", { maximumFractionDigits: 2 }).format(decimalNumber(last.minutes));
+        const minutes = new Intl.NumberFormat(DISPLAY_LOCALE, { maximumFractionDigits: 2 }).format(decimalNumber(last.minutes));
         const distance = decimalNumber(cardioValue(getExercise(id), last));
-        return `${date.slice(8, 10)}/${date.slice(5, 7)} · ${minutes} min${distance > 0 ? ` · ${new Intl.NumberFormat("es-BO", { maximumFractionDigits: 2 }).format(distance)} ${cardioMetric(getExercise(id)).unit}` : ""}`;
+        return `${date.slice(8, 10)}/${date.slice(5, 7)} · ${minutes} min${distance > 0 ? ` · ${new Intl.NumberFormat(DISPLAY_LOCALE, { maximumFractionDigits: 2 }).format(distance)} ${cardioMetric(getExercise(id)).unit}` : ""}`;
       }
       continue;
     }
     const done = sets.filter(set => set.done && !set.dropSet && Number(set.reps) > 0);
     if (done.length) {
       const best = done.at(-1);
-      return `${date.slice(8, 10)}/${date.slice(5, 7)} · ${best.reps} reps${best.kg !== "" ? ` · ${best.kg} kg` : " · peso corporal"}`;
+      return `${date.slice(8, 10)}/${date.slice(5, 7)} · ${best.reps} reps${best.kg !== "" ? ` · ${best.kg} kg` : demoText(" · peso corporal", " · bodyweight")}`;
     }
   }
-  return "Sin registros anteriores";
+  return demoText("Sin registros anteriores", "No previous records");
 }
 function recordedUses(id, beforeDate = `${todayISO()}~`) {
   const cardio = getExercise(id)?.group === "Cardio";
@@ -503,7 +592,7 @@ function lastRegularSet(id, beforeDate = activeDate) {
   }
 }
 const shortUseDate = date => `${date.slice(8, 10)}/${date.slice(5, 7)}`;
-const formatMeasure = value => new Intl.NumberFormat("es-BO", { maximumFractionDigits: 2 }).format(decimalNumber(value));
+const formatMeasure = value => new Intl.NumberFormat(DISPLAY_LOCALE, { maximumFractionDigits: 2 }).format(decimalNumber(value));
 function widgetToggleIcon(expanded = false) {
   const path = expanded ? "M3 8h5V3m13 5h-5V3M3 16h5v5m13-5h-5v5" : "M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5";
   return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${path}"/></svg>`;
@@ -511,7 +600,7 @@ function widgetToggleIcon(expanded = false) {
 function performanceWidget(id, kind, label, body) {
   const key = `${tab}-${activeDate}-${kind}-${id}`;
   const description = `${label}: ${getExercise(id)?.name || id}`;
-  return `<button type="button" class="performance-widget ${kind}" data-action="toggle-performance-widget" data-widget-label="${escapeHtml(description)}" aria-expanded="false" aria-controls="${escapeHtml(key)}" aria-label="Ampliar ${escapeHtml(description)}"><span class="performance-widget-header"><span class="performance-label">${escapeHtml(label)}</span></span><span class="performance-details" id="${escapeHtml(key)}" hidden>${body}</span></button>`;
+  return `<button type="button" class="performance-widget ${kind}" data-action="toggle-performance-widget" data-widget-label="${escapeHtml(description)}" aria-expanded="false" aria-controls="${escapeHtml(key)}" aria-label="${demoText("Ampliar", "Expand")} ${escapeHtml(description)}"><span class="performance-widget-header"><span class="performance-label">${escapeHtml(label)}</span></span><span class="performance-details" id="${escapeHtml(key)}" hidden>${body}</span></button>`;
 }
 function setPerformanceWidget(button, expanded) {
   const widget = button.closest(".performance-widget");
@@ -520,14 +609,14 @@ function setPerformanceWidget(button, expanded) {
   content.hidden = !expanded;
   widget.classList.toggle("is-expanded", expanded);
   button.setAttribute("aria-expanded", String(expanded));
-  button.setAttribute("aria-label", `${expanded ? "Minimizar" : "Ampliar"} ${button.dataset.widgetLabel}`);
+  button.setAttribute("aria-label", `${expanded ? demoText("Minimizar", "Collapse") : demoText("Ampliar", "Expand")} ${button.dataset.widgetLabel}`);
 }
 function syncPerformanceGroup(group) {
   if (!group) return;
   const expanded = [...group.querySelectorAll('.performance-widget')].every(widget => widget.getAttribute('aria-expanded') === 'true');
   const button = group.querySelector('.widgets-toggle-all');
   button.setAttribute('aria-expanded', String(expanded));
-  button.setAttribute('aria-label', `${expanded ? 'Minimizar' : 'Ampliar'} todos los registros: ${button.dataset.exerciseName}`);
+  button.setAttribute('aria-label', `${expanded ? demoText("Minimizar", "Collapse") : demoText("Ampliar", "Expand")} ${demoText("todos los registros:", "all records:")} ${button.dataset.exerciseName}`);
 }
 function togglePerformanceWidget(button) {
   setPerformanceWidget(button, button.getAttribute('aria-expanded') !== 'true');
@@ -541,14 +630,14 @@ function togglePerformanceGroup(button) {
 }
 function performanceWidgetsMarkup(id) {
   const name = getExercise(id)?.name || id;
-  return `<div class="performance-widgets"><button type="button" class="widgets-toggle-all" data-action="toggle-performance-group" data-exercise-name="${escapeHtml(name)}" aria-label="Ampliar todos los registros: ${escapeHtml(name)}" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>${lastUseMarkup(id)}${weightHistoryMarkup(id)}</div>`;
+  return `<div class="performance-widgets"><button type="button" class="widgets-toggle-all" data-action="toggle-performance-group" data-exercise-name="${escapeHtml(name)}" aria-label="${demoText("Ampliar todos los registros:", "Expand all records:")} ${escapeHtml(name)}" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>${lastUseMarkup(id)}${weightHistoryMarkup(id)}</div>`;
 }
 function lastUseContent(id, beforeDate, compact = false) {
   const use = recordedUses(id, beforeDate).at(-1);
-  if (!use) return { label: "Último uso", body: `<span class="performance-empty">${compact ? "Sin registros anteriores." : "No hay series completadas registradas para este ejercicio."}</span>` };
+  if (!use) return { label: demoText("Último uso", "Last workout"), body: `<span class="performance-empty">${compact ? demoText("Sin registros anteriores.", "No previous records.") : demoText("No hay series completadas registradas para este ejercicio.", "No completed sets recorded for this exercise.")}</span>` };
   const cardio = getExercise(id)?.group === "Cardio";
   const summary = use.sets.map((set, i) => `<span class="last-use-set"><span class="previous-set-number">${i + 1}.${set.dropSet ? ' <small class="drop-set-label" title="Drop Set">DS</small>' : ""}</span> ${cardio ? `${formatMeasure(set.minutes)} min · ${formatMeasure(cardioValue(getExercise(id), set))} ${cardioMetric(getExercise(id)).unit}` : `${formatMeasure(set.kg)} kg × ${escapeHtml(set.reps)} reps`}</span>`).join("");
-  return { label: `Último uso · ${shortUseDate(use.date)}/${use.date.slice(0, 4)}`, body: `<span class="last-use-sets">${summary}</span>${cardio ? maximumSummaryMarkup(id) : ""}` };
+  return { label: `${demoText("Último uso", "Last workout")} · ${shortUseDate(use.date)}/${use.date.slice(0, 4)}`, body: `<span class="last-use-sets">${summary}</span>${cardio ? maximumSummaryMarkup(id) : ""}` };
 }
 function lastUseMarkup(id, beforeDate) {
   const content = lastUseContent(id, beforeDate);
@@ -557,7 +646,7 @@ function lastUseMarkup(id, beforeDate) {
 function weightHistoryContent(id, beforeDate, compact = false) {
   if (getExercise(id)?.group === "Cardio") return null;
   const uses = recordedUses(id, beforeDate).slice(-4);
-  if (!uses.length) return { label: "Peso máximo · últimos 4 usos", body: `<span class="performance-empty">${compact ? "Sin usos anteriores." : "El gráfico aparecerá al registrar series hechas con peso y repeticiones."}</span>${maximumSummaryMarkup(id)}` };
+  if (!uses.length) return { label: demoText("Peso máximo · últimos 4 usos", "Max weight · last 4 workouts"), body: `<span class="performance-empty">${compact ? demoText("Sin usos anteriores.", "No previous workouts.") : demoText("El gráfico aparecerá al registrar series hechas con peso y repeticiones.", "The chart will appear after recording completed sets with weight and reps.")}</span>${maximumSummaryMarkup(id)}` };
   const values = uses.map(use => use.maxKg);
   const min = Math.min(...values), max = Math.max(...values);
   const width = compact ? 180 : 300;
@@ -565,7 +654,7 @@ function weightHistoryContent(id, beforeDate, compact = false) {
   const coords = uses.map((use, i) => ({ x: uses.length === 1 ? width / 2 : left + i * (right - left) / (uses.length - 1), y: max === min ? 44 : 66 - (use.maxKg - min) * 36 / (max - min), use }));
   const description = uses.map(use => `${use.date}: ${formatMeasure(use.maxKg)} kg`).join("; ");
   const body = `<svg class="weight-sparkline" viewBox="0 0 ${width} 104" role="img" aria-label="${escapeHtml(description)}"><path class="graph-grid" d="M16 70H${width - 16}M16 34H${width - 16}"/>${coords.length > 1 ? `<polyline class="graph-line" points="${coords.map(p => `${p.x},${p.y}`).join(" ")}"/>` : ""}${coords.map(p => `<g><title>${escapeHtml(p.use.date)}: ${formatMeasure(p.use.maxKg)} kg</title><circle class="graph-dot" cx="${p.x}" cy="${p.y}" r="3.5"/><text x="${p.x}" y="${p.y - 10}" text-anchor="middle">${formatMeasure(p.use.maxKg)} kg</text><text class="graph-date" x="${p.x}" y="94" text-anchor="middle">${shortUseDate(p.use.date)}</text></g>`).join("")}</svg>${maximumSummaryMarkup(id)}`;
-  return { label: `Peso máximo · últimos ${uses.length} ${uses.length === 1 ? "uso" : "usos"}`, body };
+  return { label: `${demoText("Peso máximo · últimos", "Max weight · last")} ${uses.length} ${uses.length === 1 ? demoText("uso", "workout") : demoText("usos", "workouts")}`, body };
 }
 function weightHistoryMarkup(id, beforeDate) {
   const content = weightHistoryContent(id, beforeDate);
@@ -574,10 +663,10 @@ function weightHistoryMarkup(id, beforeDate) {
 function sessionPerformanceMarkup(id) {
   const expanded = sessionHistoryOpen.has(`${activeDate}:${id}`);
   const key = `${tab}-${activeDate}-session-history-${id}`;
-  const description = `registros de ${getExercise(id)?.name || id}`;
+  const description = `${demoText("registros de", "records for")} ${getExercise(id)?.name || id}`;
   const last = expanded ? lastUseContent(id, activeDate, true) : null;
   const history = expanded ? weightHistoryContent(id, activeDate, true) : null;
-  return `<button type="button" class="performance-widget session-performance${getExercise(id)?.group === "Cardio" ? " is-cardio" : ""}${expanded ? " is-expanded" : ""}" data-action="toggle-session-history" data-id="${escapeHtml(id)}" data-widget-label="${escapeHtml(description)}" aria-expanded="${expanded}" aria-controls="${escapeHtml(key)}" aria-label="${expanded ? "Minimizar" : "Ampliar"} ${escapeHtml(description)}"><span class="session-history-heading"><span>Registros anteriores</span><span>${expanded ? "Ocultar" : "Ver"} <span aria-hidden="true">${expanded ? "⌃" : "⌄"}</span></span></span><span class="performance-details session-performance-columns" id="${escapeHtml(key)}" ${expanded ? "" : "hidden"}>${expanded ? `<span class="session-last-use"><span class="performance-label">${escapeHtml(last.label)}</span>${last.body}</span>${history ? `<span class="session-weight-history"><span class="performance-label">${escapeHtml(history.label)}</span>${history.body}</span>` : ""}` : ""}</span></button>`;
+  return `<button type="button" class="performance-widget session-performance${getExercise(id)?.group === "Cardio" ? " is-cardio" : ""}${expanded ? " is-expanded" : ""}" data-action="toggle-session-history" data-id="${escapeHtml(id)}" data-widget-label="${escapeHtml(description)}" aria-expanded="${expanded}" aria-controls="${escapeHtml(key)}" aria-label="${expanded ? demoText("Minimizar", "Collapse") : demoText("Ampliar", "Expand")} ${escapeHtml(description)}"><span class="session-history-heading"><span>${demoText("Registros anteriores", "Previous records")}</span><span>${expanded ? demoText("Ocultar", "Hide") : demoText("Ver", "View")} <span aria-hidden="true">${expanded ? "⌃" : "⌄"}</span></span></span><span class="performance-details session-performance-columns" id="${escapeHtml(key)}" ${expanded ? "" : "hidden"}>${expanded ? `<span class="session-last-use"><span class="performance-label">${escapeHtml(last.label)}</span>${last.body}</span>${history ? `<span class="session-weight-history"><span class="performance-label">${escapeHtml(history.label)}</span>${history.body}</span>` : ""}` : ""}</span></button>`;
 }
 function cardioMaximum(id) {
   let best = null;
@@ -618,18 +707,18 @@ function historicalMaximum(id) {
 function maximumSummaryMarkup(id) {
   if (getExercise(id)?.group === "Cardio") {
     const maximum = cardioMaximum(id);
-    if (!maximum) return `<span class="graph-note historical-summary">Máximo histórico: sin registros.</span>`;
+    if (!maximum) return `<span class="graph-note historical-summary">${demoText("Máximo histórico: sin registros.", "Personal best: no records.")}</span>`;
     const date = `${maximum.date.slice(8, 10)}/${maximum.date.slice(5, 7)}/${maximum.date.slice(0, 4)}`;
-    const format = number => new Intl.NumberFormat("es-BO", { maximumFractionDigits: 2 }).format(number);
+    const format = number => new Intl.NumberFormat(DISPLAY_LOCALE, { maximumFractionDigits: 2 }).format(number);
     const value = maximum.distanceKm > 0 ? `${format(maximum.distanceKm)} ${cardioMetric(getExercise(id)).unit}` : `${format(maximum.minutes)} min`;
     const detail = maximum.distanceKm > 0 ? `${format(maximum.minutes)} min · ${date}` : date;
-    return `<span class="graph-note historical-summary">Máximo histórico: ${escapeHtml(value)} · ${escapeHtml(detail)}</span>`;
+    return `<span class="graph-note historical-summary">${demoText("Máximo histórico:", "Personal best:")} ${escapeHtml(value)} · ${escapeHtml(detail)}</span>`;
   }
   const maximum = historicalMaximum(id);
-  if (!maximum) return `<span class="graph-note historical-summary">Máximo histórico: sin registros.</span>`;
+  if (!maximum) return `<span class="graph-note historical-summary">${demoText("Máximo histórico: sin registros.", "Personal best: no records.")}</span>`;
   const date = `${maximum.date.slice(8, 10)}/${maximum.date.slice(5, 7)}/${maximum.date.slice(0, 4)}`;
-  const weight = new Intl.NumberFormat("es-BO", { maximumFractionDigits: 2 }).format(maximum.kg);
-  return `<span class="graph-note historical-summary">Máximo histórico: ${escapeHtml(weight)} kg · ${maximum.reps} reps · ${date}</span>`;
+  const weight = new Intl.NumberFormat(DISPLAY_LOCALE, { maximumFractionDigits: 2 }).format(maximum.kg);
+  return `<span class="graph-note historical-summary">${demoText("Máximo histórico:", "Personal best:")} ${escapeHtml(weight)} kg · ${maximum.reps} reps · ${date}</span>`;
 }
 function showToast(message, undo) {
   const toast = $("#toast");
@@ -637,7 +726,7 @@ function showToast(message, undo) {
   undoAction = undo || null;
   if (undoAction) {
     const button = document.createElement("button");
-    button.type = "button"; button.dataset.action = "undo-removal"; button.textContent = "Deshacer";
+    button.type = "button"; button.dataset.action = "undo-removal"; button.textContent = demoText("Deshacer", "Undo");
     toast.appendChild(button);
   }
   toast.classList.add("show");
@@ -665,7 +754,7 @@ function removeExerciseWithUndo(id) {
   if (index < 0) return;
   const date = activeDate;
   removeFromSession(id); render();
-  showToast("Ejercicio quitado de la sesión", () => undoRemovedExercise(date, id, index));
+  showToast(demoText("Ejercicio quitado de la sesión", "Exercise removed from session"), () => undoRemovedExercise(date, id, index));
 }
 function render() {
   const view = $("#view");
@@ -681,22 +770,22 @@ function render() {
 }
 function renderSessionSummary(session, exercises) {
   const completed = exercises.filter(ex => isExerciseComplete(session, ex.id)).length;
-  return `<section class="summary-card" aria-label="Progreso de la sesión"><div class="summary-number" aria-label="${completed} de ${exercises.length} ejercicios completados">${completed}<span> / ${exercises.length}</span></div><div class="progress-track" role="progressbar" aria-label="Ejercicios completados" aria-valuemin="0" aria-valuemax="${exercises.length || 1}" aria-valuenow="${completed}"><div class="progress-fill" style="width:${exercises.length ? completed / exercises.length * 100 : 0}%"></div></div></section>`;
+  return `<section class="summary-card" aria-label="${demoText("Progreso de la sesión", "Session progress")}"><div class="summary-number" aria-label="${completed} ${demoText("de", "of")} ${exercises.length} ${demoText("ejercicios completados", "exercises completed")}">${completed}<span> / ${exercises.length}</span></div><div class="progress-track" role="progressbar" aria-label="${demoText("Ejercicios completados", "Completed exercises")}" aria-valuemin="0" aria-valuemax="${exercises.length || 1}" aria-valuenow="${completed}"><div class="progress-fill" style="width:${exercises.length ? completed / exercises.length * 100 : 0}%"></div></div></section>`;
 }
 function renderToday() {
   const session = ensureSession();
   const exercises = session.selected.map(getExercise).filter(Boolean);
   return `${renderSessionSummary(session, exercises)}
-    <div class="section-head"><h2>Ejercicios de esta sesión</h2><button class="text-button" type="button" data-action="go-catalog">+ Elegir ejercicios</button></div>
-    ${exercises.length ? `<div class="session-list">${exercises.map((ex, index) => renderSessionExercise(ex, session, index)).join("")}</div>` : `<div class="empty-state"><div class="empty-icon">＋</div><h3>Tu sesión está vacía</h3><p>Elige los ejercicios que quieras hacer hoy.</p><button class="primary-button" data-action="go-catalog">Abrir inventario</button></div>`}
+    <div class="section-head"><h2>${demoText("Ejercicios de esta sesión", "Exercises in this session")}</h2><button class="text-button" type="button" data-action="go-catalog">${demoText("+ Elegir ejercicios", "+ Choose exercises")}</button></div>
+    ${exercises.length ? `<div class="session-list">${exercises.map((ex, index) => renderSessionExercise(ex, session, index)).join("")}</div>` : `<div class="empty-state"><div class="empty-icon">＋</div><h3>${demoText("Tu sesión está vacía", "Your session is empty")}</h3><p>${demoText("Elige los ejercicios que quieras hacer hoy.", "Choose the exercises you want to do today.")}</p><button class="primary-button" data-action="go-catalog">${demoText("Abrir inventario", "Open catalog")}</button></div>`}
     <p class="session-date"><time datetime="${escapeHtml(activeDate)}">${escapeHtml(formatDate(activeDate))}</time></p>
-    <div class="session-finish"><div><strong>${session.finishedAt ? "✓ Sesión terminada" : "¿Terminaste por hoy?"}</strong><p>${session.finishedAt ? "Tus registros se conservan y puedes corregirlos aquí." : "Guarda tu entrenamiento aunque queden ejercicios pendientes."}</p></div><button type="button" class="${session.finishedAt ? "secondary-button" : "primary-button"}" data-action="${session.finishedAt ? "reopen-session" : "finish-session"}" data-date="${activeDate}">${session.finishedAt ? "Reabrir sesión" : "Terminar sesión"}</button></div>`;
+    <div class="session-finish"><div><strong>${session.finishedAt ? demoText("✓ Sesión terminada", "✓ Session finished") : demoText("¿Terminaste por hoy?", "Finished for today?")}</strong><p>${session.finishedAt ? demoText("Tus registros se conservan y puedes corregirlos aquí.", "Your records are saved and you can edit them here.") : demoText("Guarda tu entrenamiento aunque queden ejercicios pendientes.", "Save your workout even if some exercises are unfinished.")}</p></div><button type="button" class="${session.finishedAt ? "secondary-button" : "primary-button"}" data-action="${session.finishedAt ? "reopen-session" : "finish-session"}" data-date="${activeDate}">${session.finishedAt ? demoText("Reabrir sesión", "Reopen session") : demoText("Terminar sesión", "Finish session")}</button></div>`;
 }
 function renderSetFields(ex, set, index) {
   const fields = ex.group === "Cardio"
-    ? [["minutes", "Minutos", set.minutes], [cardioMetric(ex).field, cardioMetric(ex).label, cardioValue(ex, set)]]
-    : [["kg", "Peso kg", set.kg], ["reps", "Repeticiones", set.reps]];
-  return fields.map(([field, label, value]) => `<input class="set-input" type="${field === "reps" ? "number" : "text"}" ${field === "reps" ? 'min="0"' : ""} inputmode="${field === "reps" ? "numeric" : "decimal"}" placeholder="—" value="${escapeHtml(value)}" data-set-field="${field}" data-ex="${ex.id}" data-set-id="${set.id}" aria-label="${label} serie ${index + 1}${set.dropSet ? " Drop Set" : ""} de ${escapeHtml(ex.name)}" />`).join("");
+    ? [["minutes", demoText("Minutos", "Minutes"), set.minutes], [cardioMetric(ex).field, cardioMetric(ex).label, cardioValue(ex, set)]]
+    : [["kg", demoText("Peso kg", "Weight kg"), set.kg], ["reps", demoText("Repeticiones", "Repetitions"), set.reps]];
+  return fields.map(([field, label, value]) => `<input class="set-input" type="${field === "reps" ? "number" : "text"}" ${field === "reps" ? 'min="0"' : ""} inputmode="${field === "reps" ? "numeric" : "decimal"}" placeholder="—" value="${escapeHtml(value)}" data-set-field="${field}" data-ex="${ex.id}" data-set-id="${set.id}" aria-label="${label} ${demoText("serie", "set")} ${index + 1}${set.dropSet ? " Drop Set" : ""} ${demoText("de", "of")} ${escapeHtml(ex.name)}" />`).join("");
 }
 function refreshSetProgress(input) {
   // Refresh progress without replacing inputs or interrupting the phone keyboard.
@@ -713,8 +802,8 @@ function refreshSetProgress(input) {
   const badge = card.querySelector(".complete-button");
   badge.classList.toggle("done", done);
   badge.setAttribute("aria-pressed", String(done));
-  badge.setAttribute("aria-label", `${done ? "Marcar pendiente" : "Marcar completado"}: ${ex.name}`);
-  card.querySelector(".expand-button span").textContent = `${sets.filter(set => set.done).length} de ${sets.length} series hechas`;
+  badge.setAttribute("aria-label", `${done ? demoText("Marcar pendiente", "Mark incomplete") : demoText("Marcar completado", "Mark complete")}: ${ex.name}`);
+  card.querySelector(".expand-button span").textContent = `${sets.filter(set => set.done).length} ${demoText("de", "of")} ${sets.length} ${demoText("series hechas", "sets completed")}`;
   const row = input.closest(".set-row");
   row.querySelector("[data-set-done]").checked = sets.find(set => set.id === input.dataset.setId).done;
 }
@@ -722,67 +811,67 @@ function renderSessionExercise(ex, session, index) {
   const isOpen = expandedId === ex.id;
   const sets = session.sets[ex.id] || [];
   const done = isExerciseComplete(session, ex.id);
-  const pair = `Ejercicio ${index + 1}`;
+  const pair = `${demoText("Ejercicio", "Exercise")} ${index + 1}`;
   return `<article class="session-card${done ? " done" : ""}">
-    <div class="session-main">${imageMarkup(ex)}<h3 class="session-heading" title="${escapeHtml(`${pair} · ${ex.group} · ${ex.name}`)}"><span class="exercise-kicker">EJ. ${index + 1} · ${escapeHtml(ex.group)} · </span><span class="session-exercise-name" lang="en">${escapeHtml(ex.name)}</span></h3><button type="button" class="complete-button${done ? " done" : ""}" data-action="toggle-complete" data-id="${ex.id}" aria-label="${done ? "Marcar pendiente" : "Marcar completado"}: ${escapeHtml(ex.name)}" aria-pressed="${done}"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></button></div>
-    ${sessionPerformanceMarkup(ex.id)}<button type="button" class="expand-button" data-action="expand" data-id="${ex.id}" aria-expanded="${isOpen}"><span>${sets.filter(set => set.done).length} de ${sets.length} series hechas</span><svg viewBox="0 0 24 24"><path d="m5 9 7 7 7-7"/></svg></button>
-    ${isOpen ? `<div class="sets-panel"><div class="set-header"><span>Serie</span><span>${ex.group === "Cardio" ? "Minutos" : "Peso kg"}</span><span>${ex.group === "Cardio" ? cardioMetric(ex).heading : "Reps"}</span><span>Hecha</span><span></span></div>${sets.map((set, i) => `<div class="set-row"><span class="set-index">${String(i + 1).padStart(2, "0")}${set.dropSet ? '<small class="drop-set-label" title="Drop Set">DS</small>' : ""}</span>${renderSetFields(ex, set, i)}<input class="set-check" type="checkbox" ${set.done ? "checked" : ""} data-set-done data-ex="${ex.id}" data-set-id="${set.id}" aria-label="Serie ${i + 1}${set.dropSet ? " Drop Set" : ""} hecha" /><button type="button" class="remove-set" data-action="remove-set" data-id="${ex.id}" data-set-id="${set.id}" aria-label="Quitar serie ${i + 1}${set.dropSet ? " Drop Set" : ""}"><svg viewBox="0 0 24 24"><path d="M5 7h14m-12 0 1 13h8l1-13M9 7V4h6v3"/></svg></button></div>`).join("")}<div class="panel-actions"><div class="add-set-actions"><button type="button" class="add-set" data-action="add-set" data-id="${ex.id}" aria-label="Añadir serie a ${escapeHtml(ex.name)}" title="Añadir serie"><span aria-hidden="true">+</span></button>${ex.group === "Cardio" ? "" : `<button type="button" class="add-set add-drop-set" data-action="add-drop-set" data-id="${ex.id}" aria-label="Añadir Drop Set a ${escapeHtml(ex.name)}" title="Añadir Drop Set"><span aria-hidden="true">+ DS</span></button>`}</div><button type="button" class="remove-from-day" data-action="remove-exercise" data-id="${ex.id}">Quitar de hoy</button></div></div>` : ""}</article>`;
+    <div class="session-main">${imageMarkup(ex)}<h3 class="session-heading" title="${escapeHtml(`${pair} · ${demoLabel(ex.group)} · ${ex.name}`)}"><span class="exercise-kicker">${demoText("EJ.", "EX.")} ${index + 1} · ${escapeHtml(demoLabel(ex.group))} · </span><span class="session-exercise-name" lang="en">${escapeHtml(ex.name)}</span></h3><button type="button" class="complete-button${done ? " done" : ""}" data-action="toggle-complete" data-id="${ex.id}" aria-label="${done ? demoText("Marcar pendiente", "Mark incomplete") : demoText("Marcar completado", "Mark complete")}: ${escapeHtml(ex.name)}" aria-pressed="${done}"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></button></div>
+    ${sessionPerformanceMarkup(ex.id)}<button type="button" class="expand-button" data-action="expand" data-id="${ex.id}" aria-expanded="${isOpen}"><span>${sets.filter(set => set.done).length} ${demoText("de", "of")} ${sets.length} ${demoText("series hechas", "sets completed")}</span><svg viewBox="0 0 24 24"><path d="m5 9 7 7 7-7"/></svg></button>
+    ${isOpen ? `<div class="sets-panel"><div class="set-header"><span>${demoText("Serie", "Set")}</span><span>${ex.group === "Cardio" ? demoText("Minutos", "Minutes") : demoText("Peso kg", "Weight kg")}</span><span>${ex.group === "Cardio" ? cardioMetric(ex).heading : "Reps"}</span><span>${demoText("Hecha", "Done")}</span><span></span></div>${sets.map((set, i) => `<div class="set-row"><span class="set-index">${String(i + 1).padStart(2, "0")}${set.dropSet ? '<small class="drop-set-label" title="Drop Set">DS</small>' : ""}</span>${renderSetFields(ex, set, i)}<input class="set-check" type="checkbox" ${set.done ? "checked" : ""} data-set-done data-ex="${ex.id}" data-set-id="${set.id}" aria-label="${demoText("Serie", "Set")} ${i + 1}${set.dropSet ? " Drop Set" : ""} ${demoText("hecha", "completed")}" /><button type="button" class="remove-set" data-action="remove-set" data-id="${ex.id}" data-set-id="${set.id}" aria-label="${demoText("Quitar serie", "Remove set")} ${i + 1}${set.dropSet ? " Drop Set" : ""}"><svg viewBox="0 0 24 24"><path d="M5 7h14m-12 0 1 13h8l1-13M9 7V4h6v3"/></svg></button></div>`).join("")}<div class="panel-actions"><div class="add-set-actions"><button type="button" class="add-set" data-action="add-set" data-id="${ex.id}" aria-label="${demoText("Añadir serie a", "Add set to")} ${escapeHtml(ex.name)}" title="${demoText("Añadir serie", "Add set")}"><span aria-hidden="true">+</span></button>${ex.group === "Cardio" ? "" : `<button type="button" class="add-set add-drop-set" data-action="add-drop-set" data-id="${ex.id}" aria-label="${demoText("Añadir Drop Set a", "Add Drop Set to")} ${escapeHtml(ex.name)}" title="${demoText("Añadir Drop Set", "Add Drop Set")}"><span aria-hidden="true">+ DS</span></button>`}</div><button type="button" class="remove-from-day" data-action="remove-exercise" data-id="${ex.id}">${demoText("Quitar de hoy", "Remove from today")}</button></div></div>` : ""}</article>`;
 }
 function renderCatalog() {
   ensureSession();
-  return `<div class="view-header catalog-header compact-catalog-header"><p class="eyebrow">Tu inventario</p><h1 class="view-title">Ejercicios</h1><div class="catalog-header-bottom"><div class="subtle">Elige movimientos y agrégalos a tu sesión.</div><div class="header-actions"><button type="button" class="secondary-button" data-action="new-routine">Crear rutina</button><button type="button" class="primary-button light" data-action="new-exercise">+ Nuevo</button></div></div></div>
-    <div class="search-row"><input id="catalog-search" class="search-field" type="search" placeholder="Buscar ejercicio o equipo" value="${escapeHtml(catalogSearch)}" aria-label="Buscar ejercicios" /></div>
-    <div class="filter-row" role="group" aria-label="Filtrar por grupo muscular">${["Todos", ...GROUPS.filter(group => state.exercises.some(ex => !ex.archived && ex.group === group)), "Archivados"].map(group => `<button type="button" class="filter${catalogFilter === group ? " active" : ""}" data-filter="${group}">${group}</button>`).join("")}</div>
-    <div id="catalog-list" class="catalog-grid">${renderCatalogCards()}</div><p class="note">Estas ilustraciones son ejemplos de movimientos; puedes adaptar o añadir ejercicios según las máquinas de tu gimnasio.</p><button type="button" class="catalog-return" data-action="return-session">Ver sesión · ${ensureSession().selected.length} ${ensureSession().selected.length === 1 ? "ejercicio" : "ejercicios"} <span aria-hidden="true">→</span></button>`;
+  return `<div class="view-header catalog-header compact-catalog-header"><p class="eyebrow">${demoText("Tu inventario", "Your catalog")}</p><h1 class="view-title">${demoText("Ejercicios", "Exercises")}</h1><div class="catalog-header-bottom"><div class="subtle">${demoText("Elige movimientos y agrégalos a tu sesión.", "Choose exercises and add them to your session.")}</div><div class="header-actions"><button type="button" class="secondary-button" data-action="new-routine">${demoText("Crear rutina", "Create routine")}</button><button type="button" class="primary-button light" data-action="new-exercise">${demoText("+ Nuevo", "+ New")}</button></div></div></div>
+    <div class="search-row"><input id="catalog-search" class="search-field" type="search" placeholder="${demoText("Buscar ejercicio o equipo", "Search exercises or equipment")}" value="${escapeHtml(catalogSearch)}" aria-label="${demoText("Buscar ejercicios", "Search exercises")}" /></div>
+    <div class="filter-row" role="group" aria-label="${demoText("Filtrar por grupo muscular", "Filter by muscle group")}">${["Todos", ...GROUPS.filter(group => state.exercises.some(ex => !ex.archived && ex.group === group)), "Archivados"].map(group => `<button type="button" class="filter${catalogFilter === group ? " active" : ""}" data-filter="${group}">${demoLabel(group)}</button>`).join("")}</div>
+    <div id="catalog-list" class="catalog-grid">${renderCatalogCards()}</div><p class="note">${demoText("Estas ilustraciones son ejemplos de movimientos; puedes adaptar o añadir ejercicios según las máquinas de tu gimnasio.", "These illustrations show example movements; adapt or add exercises to match the equipment at your gym.")}</p><button type="button" class="catalog-return" data-action="return-session">${demoText("Ver sesión ·", "View session ·")} ${ensureSession().selected.length} ${ensureSession().selected.length === 1 ? demoText("ejercicio", "exercise") : demoText("ejercicios", "exercises")} <span aria-hidden="true">→</span></button>`;
 }
 function renderCatalogCards() {
   const selected = ensureSession().selected;
   const query = catalogSearch.trim().toLocaleLowerCase("es");
   const filtered = favoritesFirst(state.exercises.filter(ex => (catalogFilter === "Archivados" ? ex.archived : !ex.archived && (catalogFilter === "Todos" || ex.group === catalogFilter)) && exerciseMatches(ex, query)));
-  if (!filtered.length) return `<div class="empty-state" style="grid-column:1/-1"><h3>No hay coincidencias</h3><p>Prueba otra búsqueda o añade un ejercicio.</p></div>`;
+  if (!filtered.length) return `<div class="empty-state" style="grid-column:1/-1"><h3>${demoText("No hay coincidencias", "No matches")}</h3><p>${demoText("Prueba otra búsqueda o añade un ejercicio.", "Try another search or add an exercise.")}</p></div>`;
   return filtered.map(ex => {
     const details = catalogDetailsOpen.has(ex.id);
-    return `<article class="catalog-card">${catalogImageButton(ex)}<div class="catalog-content"><div class="catalog-card-heading"><div class="exercise-kicker">${escapeHtml(ex.group)}</div>${favoriteButton(ex)}</div><h3 class="exercise-title" lang="en">${escapeHtml(ex.name)}</h3><div class="exercise-meta">${escapeHtml(ex.equipment)}</div><div class="catalog-actions">${ex.archived ? `<button type="button" class="catalog-add" data-action="restore-exercise" data-id="${ex.id}">Restaurar</button>` : `<button type="button" class="catalog-add${selected.includes(ex.id) ? " selected" : ""}" data-action="catalog-toggle" data-id="${ex.id}">${selected.includes(ex.id) ? "✓ En sesión" : "+ Añadir"}</button>`}</div><button type="button" class="catalog-details-toggle" data-action="catalog-details" data-id="${escapeHtml(ex.id)}" aria-expanded="${details}">${details ? "Ocultar detalles ⌃" : "Ver detalles ⌄"}</button><div class="catalog-details" ${details ? "" : "hidden"}>${details ? `${performanceWidgetsMarkup(ex.id)}<button type="button" class="secondary-button catalog-edit" data-action="edit-exercise" data-id="${ex.id}" aria-label="Editar ${escapeHtml(ex.name)}">Editar ejercicio</button>` : ""}</div></div></article>`;
+    return `<article class="catalog-card">${catalogImageButton(ex)}<div class="catalog-content"><div class="catalog-card-heading"><div class="exercise-kicker">${escapeHtml(demoLabel(ex.group))}</div>${favoriteButton(ex)}</div><h3 class="exercise-title" lang="en">${escapeHtml(ex.name)}</h3><div class="exercise-meta">${escapeHtml(demoLabel(ex.equipment))}</div><div class="catalog-actions">${ex.archived ? `<button type="button" class="catalog-add" data-action="restore-exercise" data-id="${ex.id}">${demoText("Restaurar", "Restore")}</button>` : `<button type="button" class="catalog-add${selected.includes(ex.id) ? " selected" : ""}" data-action="catalog-toggle" data-id="${ex.id}">${selected.includes(ex.id) ? demoText("✓ En sesión", "✓ In session") : demoText("+ Añadir", "+ Add")}</button>`}</div><button type="button" class="catalog-details-toggle" data-action="catalog-details" data-id="${escapeHtml(ex.id)}" aria-expanded="${details}">${details ? demoText("Ocultar detalles ⌃", "Hide details ⌃") : demoText("Ver detalles ⌄", "View details ⌄")}</button><div class="catalog-details" ${details ? "" : "hidden"}>${details ? `${performanceWidgetsMarkup(ex.id)}<button type="button" class="secondary-button catalog-edit" data-action="edit-exercise" data-id="${ex.id}" aria-label="${demoText("Editar", "Edit")} ${escapeHtml(ex.name)}">${demoText("Editar ejercicio", "Edit exercise")}</button>` : ""}</div></div></article>`;
   }).join("");
 }
 function availableRoutineExercises(routine) {
   return [...new Set(routine.exerciseIds)].map(getExercise).filter(ex => ex && !ex.archived);
 }
 function renderRoutinesPage() {
-  return `<div class="view-header catalog-header"><div><p class="eyebrow">Tu entrenamiento</p><h1 class="view-title">Rutinas</h1><div class="subtle">Tus combinaciones favoritas, organizadas por músculo.</div></div><button type="button" class="primary-button light" data-action="new-routine">+ Crear rutina</button></div>${renderRoutines()}`;
+  return `<div class="view-header catalog-header"><div><p class="eyebrow">${demoText("Tu entrenamiento", "Your training")}</p><h1 class="view-title">${demoText("Rutinas", "Routines")}</h1><div class="subtle">${demoText("Tus combinaciones favoritas, organizadas por músculo.", "Your favorite combinations, organized by muscle group.")}</div></div><button type="button" class="primary-button light" data-action="new-routine">${demoText("+ Crear rutina", "+ Create routine")}</button></div>${renderRoutines()}`;
 }
 function renderRoutines() {
   const groups = [...new Set(state.routines.map(routine => routine.group))];
-  return `<section class="routines-section" aria-labelledby="routines-title"><div class="section-head"><h2 id="routines-title">Mis rutinas</h2><span class="subtle">${state.routines.length}</span></div><p class="subtle routine-intro">Añade una rutina completa a tu sesión del ${escapeHtml(formatDate(activeDate))}.</p>${groups.length ? groups.map(group => `<div class="routine-group"><h3 class="exercise-kicker">${escapeHtml(group)}</h3><div class="routine-grid">${state.routines.filter(routine => routine.group === group).map(routine => {
+  return `<section class="routines-section" aria-labelledby="routines-title"><div class="section-head"><h2 id="routines-title">${demoText("Mis rutinas", "My routines")}</h2><span class="subtle">${state.routines.length}</span></div><p class="subtle routine-intro">${demoText("Añade una rutina completa a tu sesión del", "Add a complete routine to your session on")} ${escapeHtml(formatDate(activeDate))}.</p>${groups.length ? groups.map(group => `<div class="routine-group"><h3 class="exercise-kicker">${escapeHtml(demoLabel(group))}</h3><div class="routine-grid">${state.routines.filter(routine => routine.group === group).map(routine => {
     const exercises = availableRoutineExercises(routine);
     const missing = routine.exerciseIds.length - exercises.length;
     const allSelected = exercises.length > 0 && exercises.every(ex => ensureSession().selected.includes(ex.id));
-    return `<article class="routine-card"><h4>${escapeHtml(routine.name)}</h4><div class="subtle">${exercises.length} ${exercises.length === 1 ? "ejercicio disponible" : "ejercicios disponibles"}</div><ul>${exercises.map(ex => `<li><span lang="en">${escapeHtml(ex.name)}</span></li>`).join("")}</ul>${missing ? `<p class="routine-warning">${missing} ${missing === 1 ? "ejercicio archivado o no disponible" : "ejercicios archivados o no disponibles"}.</p>` : ""}<div class="routine-actions"><button type="button" class="catalog-add${allSelected ? " selected" : ""}" data-action="add-routine" data-id="${escapeHtml(routine.id)}" ${!exercises.length || allSelected ? "disabled" : ""}>${allSelected ? "✓ En sesión" : "+ Añadir a sesión"}</button><button type="button" class="secondary-button" data-action="edit-routine" data-id="${escapeHtml(routine.id)}" aria-label="Editar rutina ${escapeHtml(routine.name)}">Editar</button></div></article>`;
-  }).join("")}</div></div>`).join("") : `<div class="routine-empty">Guarda tus combinaciones favoritas por músculo con el botón <strong>Crear rutina</strong>.</div>`}</section>`;
+    return `<article class="routine-card"><h4>${escapeHtml(demoLabel(routine.name))}</h4><div class="subtle">${exercises.length} ${exercises.length === 1 ? demoText("ejercicio disponible", "available exercise") : demoText("ejercicios disponibles", "available exercises")}</div><ul>${exercises.map(ex => `<li><span lang="en">${escapeHtml(ex.name)}</span></li>`).join("")}</ul>${missing ? `<p class="routine-warning">${missing} ${missing === 1 ? demoText("ejercicio archivado o no disponible", "archived or unavailable exercise") : demoText("ejercicios archivados o no disponibles", "archived or unavailable exercises")}.</p>` : ""}<div class="routine-actions"><button type="button" class="catalog-add${allSelected ? " selected" : ""}" data-action="add-routine" data-id="${escapeHtml(routine.id)}" ${!exercises.length || allSelected ? "disabled" : ""}>${allSelected ? demoText("✓ En sesión", "✓ In session") : demoText("+ Añadir a sesión", "+ Add to session")}</button><button type="button" class="secondary-button" data-action="edit-routine" data-id="${escapeHtml(routine.id)}" aria-label="${demoText("Editar rutina", "Edit routine")} ${escapeHtml(demoLabel(routine.name))}">${demoText("Editar", "Edit")}</button></div></article>`;
+  }).join("")}</div></div>`).join("") : `<div class="routine-empty">${demoText("Guarda tus combinaciones favoritas por músculo con el botón", "Save your favorite combinations by muscle group with the")} <strong>${demoText("Crear rutina", "Create routine")}</strong>${demoText("", " button")}.</div>`}</section>`;
 }
 function openRoutineForm(id) {
   const existing = state.routines.find(routine => routine.id === id);
   const group = existing?.group || (GROUPS.includes(catalogFilter) ? catalogFilter : "Bíceps");
   routineDraft = { id: existing?.id, group, exerciseIds: new Set(existing?.exerciseIds || []) };
-  openOverlay(`<h2 id="sheet-title">${existing ? "Editar rutina" : "Crear rutina"}</h2><p>Elige un músculo y los ejercicios que quieras guardar juntos.</p><form id="routine-form"><label class="field-label" for="routine-name">Nombre de la rutina</label><input id="routine-name" class="field" required maxlength="90" value="${escapeHtml(existing?.name || "")}" placeholder="Ej. Rutina de pecho A" /><label class="field-label" for="routine-group">Músculo</label><select id="routine-group" class="field">${GROUPS.map(item => `<option value="${item}" ${item === group ? "selected" : ""}>${item}</option>`).join("")}</select><p class="routine-help">Al cambiar de músculo, elige los ejercicios de ese grupo.</p><label class="field-label" for="routine-search">Buscar ejercicios</label><input id="routine-search" class="search-field routine-search" type="search" placeholder="Nombre o equipo" /><div id="routine-options" class="routine-options"></div><p id="routine-count" class="routine-count" role="status" aria-live="polite"></p><p id="routine-error" class="routine-warning" role="alert"></p><div class="sheet-buttons"><button type="button" class="secondary-button" data-close-overlay>Cancelar</button><button type="submit" class="primary-button">Guardar rutina</button></div>${existing ? `<button type="button" class="remove-from-day" data-action="delete-routine" data-id="${escapeHtml(existing.id)}">Eliminar rutina</button>` : ""}</form>`);
+  openOverlay(`<h2 id="sheet-title">${existing ? demoText("Editar rutina", "Edit routine") : demoText("Crear rutina", "Create routine")}</h2><p>${demoText("Elige un músculo y los ejercicios que quieras guardar juntos.", "Choose a muscle group and the exercises you want to save together.")}</p><form id="routine-form"><label class="field-label" for="routine-name">${demoText("Nombre de la rutina", "Routine name")}</label><input id="routine-name" class="field" required maxlength="90" value="${escapeHtml(demoLabel(existing?.name || ""))}" placeholder="${demoText("Ej. Rutina de pecho A", "e.g. Chest routine A")}" /><label class="field-label" for="routine-group">${demoText("Músculo", "Muscle group")}</label><select id="routine-group" class="field">${GROUPS.map(item => `<option value="${item}" ${item === group ? "selected" : ""}>${demoLabel(item)}</option>`).join("")}</select><p class="routine-help">${demoText("Al cambiar de músculo, elige los ejercicios de ese grupo.", "When changing muscle groups, choose exercises from that group.")}</p><label class="field-label" for="routine-search">${demoText("Buscar ejercicios", "Search exercises")}</label><input id="routine-search" class="search-field routine-search" type="search" placeholder="${demoText("Nombre o equipo", "Name or equipment")}" /><div id="routine-options" class="routine-options"></div><p id="routine-count" class="routine-count" role="status" aria-live="polite"></p><p id="routine-error" class="routine-warning" role="alert"></p><div class="sheet-buttons"><button type="button" class="secondary-button" data-close-overlay>${demoText("Cancelar", "Cancel")}</button><button type="submit" class="primary-button">${demoText("Guardar rutina", "Save routine")}</button></div>${existing ? `<button type="button" class="remove-from-day" data-action="delete-routine" data-id="${escapeHtml(existing.id)}">${demoText("Eliminar rutina", "Delete routine")}</button>` : ""}</form>`);
   renderRoutineOptions();
 }
 function renderRoutineOptions() {
   const query = $("#routine-search").value.trim().toLocaleLowerCase("es");
   const exercises = favoritesFirst(state.exercises.filter(ex => ex.group === routineDraft.group && (!ex.archived || routineDraft.exerciseIds.has(ex.id)) && exerciseMatches(ex, query)));
-  $("#routine-options").innerHTML = exercises.length ? exercises.map(ex => `<label class="routine-option"><input type="checkbox" aria-label="${escapeHtml(ex.name)}" data-routine-ex="${escapeHtml(ex.id)}" ${routineDraft.exerciseIds.has(ex.id) ? "checked" : ""} />${imageMarkup(ex, "routine-thumbnail")}<span class="routine-option-copy"><strong lang="en">${escapeHtml(ex.name)}</strong><small>${ex.archived ? "Archivado · no se añadirá a la sesión" : escapeHtml(ex.equipment)}</small></span></label>`).join("") : `<p class="routine-empty">${query ? "No hay coincidencias con esta búsqueda." : "No hay ejercicios disponibles para este músculo. Añádelos desde Nuevo."}</p>`;
+  $("#routine-options").innerHTML = exercises.length ? exercises.map(ex => `<label class="routine-option"><input type="checkbox" aria-label="${escapeHtml(ex.name)}" data-routine-ex="${escapeHtml(ex.id)}" ${routineDraft.exerciseIds.has(ex.id) ? "checked" : ""} />${imageMarkup(ex, "routine-thumbnail")}<span class="routine-option-copy"><strong lang="en">${escapeHtml(ex.name)}</strong><small>${ex.archived ? demoText("Archivado · no se añadirá a la sesión", "Archived · will not be added to the session") : escapeHtml(demoLabel(ex.equipment))}</small></span></label>`).join("") : `<p class="routine-empty">${query ? demoText("No hay coincidencias con esta búsqueda.", "No matches for this search.") : demoText("No hay ejercicios disponibles para este músculo. Añádelos desde Nuevo.", "No exercises available for this muscle group. Add them with New.")}</p>`;
   updateRoutineCount();
 }
 function updateRoutineCount() {
   const count = routineDraft.exerciseIds.size;
-  $("#routine-count").textContent = `${count} ${count === 1 ? "ejercicio seleccionado" : "ejercicios seleccionados"}`;
+  $("#routine-count").textContent = `${count} ${count === 1 ? demoText("ejercicio seleccionado", "exercise selected") : demoText("ejercicios seleccionados", "exercises selected")}`;
   $("#routine-error").textContent = "";
 }
 async function saveRoutine() {
   const name = $("#routine-name").value.trim();
   const exerciseIds = [...routineDraft.exerciseIds];
   if (!name || !availableRoutineExercises({ exerciseIds }).length) {
-    $("#routine-error").textContent = !name ? "Escribe un nombre para la rutina." : "Selecciona al menos un ejercicio disponible.";
+    $("#routine-error").textContent = !name ? demoText("Escribe un nombre para la rutina.", "Enter a routine name.") : demoText("Selecciona al menos un ejercicio disponible.", "Select at least one available exercise.");
     return;
   }
   const button = $("#routine-form [type=submit]");
@@ -791,9 +880,9 @@ async function saveRoutine() {
   const routine = { id: routineDraft.id || uid(), name, group: routineDraft.group, exerciseIds };
   const index = state.routines.findIndex(item => item.id === routine.id);
   if (index < 0) state.routines.push(routine); else state.routines[index] = routine;
-  try { await persistNow(); } catch { button.disabled = false; showToast("No se pudo guardar la rutina"); return; }
+  try { await persistNow(); } catch { button.disabled = false; showToast(demoText("No se pudo guardar la rutina", "Could not save routine")); return; }
   closeOverlay(); tab = "routines"; render(); window.scrollTo(0, 0);
-  showToast(index < 0 ? "Rutina guardada" : "Rutina actualizada");
+  showToast(index < 0 ? demoText("Rutina guardada", "Routine saved") : demoText("Rutina actualizada", "Routine updated"));
 }
 async function addRoutineToSession(id) {
   const routine = state.routines.find(item => item.id === id);
@@ -801,9 +890,9 @@ async function addRoutineToSession(id) {
   const exercises = availableRoutineExercises(routine);
   const added = exercises.filter(ex => !ensureSession().selected.includes(ex.id));
   added.forEach(ex => addToSession(ex.id));
-  try { await persistNow(); } catch { showToast("No se pudo guardar la sesión"); return; }
+  try { await persistNow(); } catch { showToast(demoText("No se pudo guardar la sesión", "Could not save session")); return; }
   render();
-  showToast(added.length ? `${added.length} ${added.length === 1 ? "ejercicio añadido" : "ejercicios añadidos"} a la sesión` : exercises.length ? "La rutina ya está en la sesión" : "Esta rutina no tiene ejercicios disponibles");
+  showToast(added.length ? `${added.length} ${added.length === 1 ? demoText("ejercicio añadido", "exercise added") : demoText("ejercicios añadidos", "exercises added")} ${demoText("a la sesión", "to the session")}` : exercises.length ? demoText("La rutina ya está en la sesión", "The routine is already in the session") : demoText("Esta rutina no tiene ejercicios disponibles", "This routine has no available exercises"));
 }
 function hasRecordedSet(set) {
   if (set.done === true) return true;
@@ -832,15 +921,15 @@ function summarySetText(exercise, set) {
     return `${measure(set.minutes)} min${String(metric ?? "").trim() !== "" ? ` · ${measure(metric)} ${cardioMetric(exercise).unit}` : ""}`;
   }
   const kg = decimalNumber(set.kg);
-  const weight = String(set.kg ?? "").trim() === "" || kg === 0 ? "Peso corporal" : `${measure(set.kg)} kg`;
+  const weight = String(set.kg ?? "").trim() === "" || kg === 0 ? demoText("Peso corporal", "Bodyweight") : `${measure(set.kg)} kg`;
   return `${weight} × ${measure(set.reps)} reps`;
 }
 function renderHistorySummary(date) {
   const summary = sessionSummaryData(date);
   if (!summary) return "";
-  return `<h2 id="sheet-title">Resumen del entrenamiento</h2><p class="history-summary-date">${escapeHtml(formatDate(date))}${summary.finished ? " · Sesión terminada" : ""}</p>
-    ${summary.exercises.length ? `<div class="history-summary-totals"><span><strong>${summary.exercises.length}</strong> ${summary.exercises.length === 1 ? "ejercicio registrado" : "ejercicios registrados"}</span><span><strong>${summary.completedSets}</strong> ${summary.completedSets === 1 ? "serie hecha" : "series hechas"}</span></div>${summary.completedSets ? "" : '<p class="history-summary-notice">No hay series marcadas como realizadas. Estos datos quedaron registrados sin marcar.</p>'}<div class="history-summary-list">${summary.exercises.map(item => `<article class="history-summary-exercise"><div class="history-summary-exercise-heading">${item.exercise ? imageMarkup(item.exercise, "exercise-image history-summary-image") : ""}<div class="history-summary-exercise-copy"><h3>${escapeHtml(item.exercise?.name || "Ejercicio no disponible")}</h3>${item.exercise ? `<span class="history-summary-group">${escapeHtml(item.exercise.group)}</span>` : ""}</div></div>${item.sets.length ? `<ul>${item.sets.map(row => `<li><span class="history-summary-index">${row.number}.${row.set.dropSet ? ' <small class="drop-set-label" title="Drop Set">DS</small>' : ""}</span><span>${escapeHtml(summarySetText(item.exercise, row.set))}</span><span class="history-summary-status${row.set.done ? " is-done" : ""}">${row.set.done ? "✓ Hecha" : "Sin marcar"}</span></li>`).join("")}</ul>` : '<p>Marcado como realizado, sin series detalladas.</p>'}</article>`).join("")}</div>` : '<div class="history-summary-empty"><strong>Sin actividad registrada</strong><p>Esta fecha solo tiene una sesión abierta o preparada. No cuenta como entrenamiento y podés eliminarla.</p></div>'}
-    <div class="sheet-buttons history-summary-actions"><button type="button" class="secondary-button" data-close-overlay>Cerrar</button><button type="button" class="delete-session-button" data-action="delete-session" data-date="${escapeHtml(date)}">Eliminar registro</button></div>`;
+  return `<h2 id="sheet-title">${demoText("Resumen del entrenamiento", "Workout summary")}</h2><p class="history-summary-date">${escapeHtml(formatDate(date))}${summary.finished ? demoText(" · Sesión terminada", " · Session finished") : ""}</p>
+    ${summary.exercises.length ? `<div class="history-summary-totals"><span><strong>${summary.exercises.length}</strong> ${summary.exercises.length === 1 ? demoText("ejercicio registrado", "exercise recorded") : demoText("ejercicios registrados", "exercises recorded")}</span><span><strong>${summary.completedSets}</strong> ${summary.completedSets === 1 ? demoText("serie hecha", "set completed") : demoText("series hechas", "sets completed")}</span></div>${summary.completedSets ? "" : `<p class="history-summary-notice">${demoText("No hay series marcadas como realizadas. Estos datos quedaron registrados sin marcar.", "No sets are marked complete. These records were saved without completion marks.")}</p>`}<div class="history-summary-list">${summary.exercises.map(item => `<article class="history-summary-exercise"><div class="history-summary-exercise-heading">${item.exercise ? imageMarkup(item.exercise, "exercise-image history-summary-image") : ""}<div class="history-summary-exercise-copy"><h3>${escapeHtml(item.exercise?.name || demoText("Ejercicio no disponible", "Exercise unavailable"))}</h3>${item.exercise ? `<span class="history-summary-group">${escapeHtml(demoLabel(item.exercise.group))}</span>` : ""}</div></div>${item.sets.length ? `<ul>${item.sets.map(row => `<li><span class="history-summary-index">${row.number}.${row.set.dropSet ? ' <small class="drop-set-label" title="Drop Set">DS</small>' : ""}</span><span>${escapeHtml(summarySetText(item.exercise, row.set))}</span><span class="history-summary-status${row.set.done ? " is-done" : ""}">${row.set.done ? demoText("✓ Hecha", "✓ Done") : demoText("Sin marcar", "Unmarked")}</span></li>`).join("")}</ul>` : `<p>${demoText("Marcado como realizado, sin series detalladas.", "Marked complete, without detailed sets.")}</p>`}</article>`).join("")}</div>` : `<div class="history-summary-empty"><strong>${demoText("Sin actividad registrada", "No activity recorded")}</strong><p>${demoText("Esta fecha solo tiene una sesión abierta o preparada. No cuenta como entrenamiento y podés eliminarla.", "This date only has an open or planned session. It does not count as a workout and you can delete it.")}</p></div>`}
+    <div class="sheet-buttons history-summary-actions"><button type="button" class="secondary-button" data-close-overlay>${demoText("Cerrar", "Close")}</button><button type="button" class="delete-session-button" data-action="delete-session" data-date="${escapeHtml(date)}">${demoText("Eliminar registro", "Delete record")}</button></div>`;
 }
 function openHistorySummary(date) {
   if (!Object.hasOwn(state.sessions, date)) return;
@@ -856,7 +945,7 @@ function renderHistory() {
   const first = new Date(year, month - 1, 1, 12);
   const leading = (first.getDay() + 6) % 7;
   const days = new Date(year, month, 0, 12).getDate();
-  const label = new Intl.DateTimeFormat("es-BO", { month: "long", year: "numeric" }).format(first);
+  const label = new Intl.DateTimeFormat(DISPLAY_LOCALE, { month: "long", year: "numeric" }).format(first);
   const recorded = new Set(Object.keys(state.sessions).filter(date => hasSessionActivity(state.sessions[date])));
   const count = [...recorded].filter(date => date.startsWith(historyMonth)).length;
   const cells = Array.from({ length: Math.ceil((leading + days) / 7) * 7 }, (_, index) => {
@@ -865,18 +954,18 @@ function renderHistory() {
     const date = `${historyMonth}-${String(day).padStart(2, "0")}`;
     const hasRecord = recorded.has(date);
     const hasDraft = !hasRecord && Object.hasOwn(state.sessions, date);
-    return `<button type="button" class="calendar-day${hasRecord ? " has-record" : hasDraft ? " has-draft" : ""}${date === todayISO() ? " is-today" : ""}" data-action="open-date" data-date="${date}" ${hasRecord || hasDraft ? "" : "disabled"} ${date === todayISO() ? 'aria-current="date"' : ""} aria-label="${escapeHtml(formatDate(date))}: ${hasRecord ? "con registro, ver resumen" : hasDraft ? "sin actividad, revisar o eliminar registro" : "sin registro"}"><span>${day}</span>${hasRecord ? '<span class="calendar-dot" aria-hidden="true"></span>' : hasDraft ? '<span class="calendar-dot draft-dot" aria-hidden="true"></span>' : ""}</button>`;
+    return `<button type="button" class="calendar-day${hasRecord ? " has-record" : hasDraft ? " has-draft" : ""}${date === todayISO() ? " is-today" : ""}" data-action="open-date" data-date="${date}" ${hasRecord || hasDraft ? "" : "disabled"} ${date === todayISO() ? 'aria-current="date"' : ""} aria-label="${escapeHtml(formatDate(date))}: ${hasRecord ? demoText("con registro, ver resumen", "recorded, view summary") : hasDraft ? demoText("sin actividad, revisar o eliminar registro", "no activity, review or delete record") : demoText("sin registro", "no record")}"><span>${day}</span>${hasRecord ? '<span class="calendar-dot" aria-hidden="true"></span>' : hasDraft ? '<span class="calendar-dot draft-dot" aria-hidden="true"></span>' : ""}</button>`;
   }).join("");
-  return `<div class="view-header"><div><p class="eyebrow">Tu progreso</p><h1 class="view-title">Historial</h1><div class="subtle">Tocá una fecha para ver el resumen o eliminar su registro.</div></div></div><section class="history-calendar" aria-labelledby="calendar-title"><div class="calendar-heading"><button type="button" class="secondary-button calendar-arrow" data-action="history-prev" aria-label="Mes anterior">‹</button><h2 id="calendar-title">${escapeHtml(label)}</h2><button type="button" class="secondary-button calendar-arrow" data-action="history-next" aria-label="Mes siguiente">›</button></div><div class="calendar-tools"><label for="history-month">Ir al mes</label><input id="history-month" class="date-input" type="month" min="1900-01" max="9999-12" value="${historyMonth}" /><button type="button" class="text-button" data-action="history-current">Este mes</button></div><div class="calendar-weekdays" aria-hidden="true">${["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map(day => `<span>${day}</span>`).join("")}</div><div class="calendar-days">${cells}</div><div class="calendar-legend"><span class="calendar-dot" aria-hidden="true"></span> Con actividad <span class="calendar-dot draft-dot" aria-hidden="true"></span> Sin actividad <span class="calendar-total">${count} ${count === 1 ? "día este mes" : "días este mes"}</span></div>${count ? "" : '<p class="calendar-empty">No hay entrenamientos registrados en este mes.</p>'}</section><p class="note">Los valores sugeridos y los días que solo abrís no cuentan como entrenamiento. Las fechas sin actividad se pueden abrir para eliminar su registro.</p>${DEMO_MODE ? "" : '<button type="button" class="secondary-button history-backup" id="backup-open">Respaldo de datos</button>'}`;
+  return `<div class="view-header"><div><p class="eyebrow">${demoText("Tu progreso", "Your progress")}</p><h1 class="view-title">${demoText("Historial", "History")}</h1><div class="subtle">${demoText("Tocá una fecha para ver el resumen o eliminar su registro.", "Tap a date to view its summary or delete its record.")}</div></div></div><section class="history-calendar" aria-labelledby="calendar-title"><div class="calendar-heading"><button type="button" class="secondary-button calendar-arrow" data-action="history-prev" aria-label="${demoText("Mes anterior", "Previous month")}">‹</button><h2 id="calendar-title">${escapeHtml(label)}</h2><button type="button" class="secondary-button calendar-arrow" data-action="history-next" aria-label="${demoText("Mes siguiente", "Next month")}">›</button></div><div class="calendar-tools"><label for="history-month">${demoText("Ir al mes", "Go to month")}</label><input id="history-month" class="date-input" type="month" min="1900-01" max="9999-12" value="${historyMonth}" /><button type="button" class="text-button" data-action="history-current">${demoText("Este mes", "This month")}</button></div><div class="calendar-weekdays" aria-hidden="true">${[demoText("Lun", "Mon"), demoText("Mar", "Tue"), demoText("Mié", "Wed"), demoText("Jue", "Thu"), demoText("Vie", "Fri"), demoText("Sáb", "Sat"), demoText("Dom", "Sun")].map(day => `<span>${day}</span>`).join("")}</div><div class="calendar-days">${cells}</div><div class="calendar-legend"><span class="calendar-dot" aria-hidden="true"></span> ${demoText("Con actividad", "With activity")} <span class="calendar-dot draft-dot" aria-hidden="true"></span> ${demoText("Sin actividad", "No activity")} <span class="calendar-total">${count} ${count === 1 ? demoText("día este mes", "day this month") : demoText("días este mes", "days this month")}</span></div>${count ? "" : `<p class="calendar-empty">${demoText("No hay entrenamientos registrados en este mes.", "No workouts recorded this month.")}</p>`}</section><p class="note">${demoText("Los valores sugeridos y los días que solo abrís no cuentan como entrenamiento. Las fechas sin actividad se pueden abrir para eliminar su registro.", "Suggested values and days you only open do not count as workouts. Open dates without activity to delete their records.")}</p>${DEMO_MODE ? "" : '<button type="button" class="secondary-button history-backup" id="backup-open">Respaldo de datos</button>'}`;
 }
 function openDeleteSession(date) {
   if (!Object.hasOwn(state.sessions, date)) return;
-  openOverlay(`<h2 id="sheet-title">Eliminar registro</h2><p>¿Querés eliminar el registro del <strong>${escapeHtml(formatDate(date))}</strong>? Se borrarán sus series, pesos, repeticiones y marcas de realizado. Tus rutinas y las demás sesiones se conservarán.</p><p>${DEMO_MODE ? "Puedes recuperar los datos de ejemplo con Reiniciar demo." : "Esta acción no se puede deshacer. Puedes exportar un respaldo antes de eliminarla."}</p><div class="sheet-buttons"><button type="button" class="secondary-button" data-close-overlay>Cancelar</button><button type="button" class="danger-button" data-action="confirm-delete-session" data-date="${date}">Sí, eliminar registro</button></div>`);
+  openOverlay(`<h2 id="sheet-title">${demoText("Eliminar registro", "Delete record")}</h2><p>${demoText("¿Querés eliminar el registro del", "Delete the record for")} <strong>${escapeHtml(formatDate(date))}</strong>${demoText("? Se borrarán sus series, pesos, repeticiones y marcas de realizado. Tus rutinas y las demás sesiones se conservarán.", "? Its sets, weights, reps and completion marks will be deleted. Your routines and other sessions will be kept.")}</p><p>${DEMO_MODE ? demoText("Puedes recuperar los datos de ejemplo con Reiniciar demo.", "You can restore the sample data with Reset demo.") : "Esta acción no se puede deshacer. Puedes exportar un respaldo antes de eliminarla."}</p><div class="sheet-buttons"><button type="button" class="secondary-button" data-close-overlay>${demoText("Cancelar", "Cancel")}</button><button type="button" class="danger-button" data-action="confirm-delete-session" data-date="${date}">${demoText("Sí, eliminar registro", "Yes, delete record")}</button></div>`);
 }
 async function setSessionFinished(date, finished) {
   const session = state.sessions[date];
   if (!session || (finished && !hasSessionActivity(session))) {
-    showToast("Registra al menos una serie o ejercicio antes de terminar.");
+    showToast(demoText("Registra al menos una serie o ejercicio antes de terminar.", "Record at least one set or exercise before finishing."));
     return false;
   }
   const previous = session.finishedAt;
@@ -884,12 +973,12 @@ async function setSessionFinished(date, finished) {
   else delete session.finishedAt;
   try { await persistNow(); } catch {
     if (previous === undefined) delete session.finishedAt; else session.finishedAt = previous;
-    showToast("No se pudo guardar el cambio. Inténtalo de nuevo.");
+    showToast(demoText("No se pudo guardar el cambio. Inténtalo de nuevo.", "Could not save the change. Try again."));
     return false;
   }
   if (finished) { historyMonth = date.slice(0, 7); tab = "history"; }
   render(); window.scrollTo(0, 0);
-  showToast(finished ? "Sesión terminada. Registros guardados." : "Sesión reabierta");
+  showToast(finished ? demoText("Sesión terminada. Registros guardados.", "Session finished. Records saved.") : demoText("Sesión reabierta", "Session reopened"));
   return true;
 }
 async function deleteSession(date) {
@@ -898,14 +987,14 @@ async function deleteSession(date) {
   delete state.sessions[date];
   try { await persistNow(); } catch {
     state.sessions[date] = session;
-    showToast("No se pudo eliminar la sesión. Inténtalo de nuevo.");
+    showToast(demoText("No se pudo eliminar la sesión. Inténtalo de nuevo.", "Could not delete the session. Try again."));
     return false;
   }
   historyMonth = date.slice(0, 7);
   expandedId = "";
   tab = "history";
   closeOverlay(); render(); window.scrollTo(0, 0);
-  showToast("Registro eliminado");
+  showToast(demoText("Registro eliminado", "Record deleted"));
   return true;
 }
 function openOverlay(html, imagePreview = false) {
@@ -931,30 +1020,30 @@ function openImagePreview(id) {
   const tileViews = ["6 47 339 299", "345 47 338 299", "6 346 339 311", "345 346 338 311", "6 657 339 312", "345 657 338 312"];
   const source = ex.image || STARTER_ILLUSTRATIONS[ex.id];
   if (!source && !Number.isInteger(ex.tile)) {
-    openOverlay(`<h2 id="sheet-title" lang="en">${escapeHtml(ex.name)}</h2><p>La imagen de este ejercicio está pendiente. Puedes añadir una foto desde Editar.</p><button type="button" class="primary-button" data-close-overlay>Cerrar</button>`);
+    openOverlay(`<h2 id="sheet-title" lang="en">${escapeHtml(ex.name)}</h2><p>${demoText("La imagen de este ejercicio está pendiente. Puedes añadir una foto desde Editar.", "The image for this exercise is pending.")}</p><button type="button" class="primary-button" data-close-overlay>${demoText("Cerrar", "Close")}</button>`);
     return;
   }
   const illustration = source
-    ? `<img class="preview-illustration" src="${escapeHtml(source)}" alt="Ilustración completa de ${escapeHtml(ex.name)}" />`
-    : `<svg class="preview-illustration" viewBox="${tileViews[ex.tile] || tileViews[0]}" role="img" aria-label="Ilustración completa de ${escapeHtml(ex.name)}"><image href="./assets/ejercicios-referencia.png" width="684" height="978" /></svg>`;
-  openOverlay(`<div class="image-preview-heading"><h2 id="sheet-title" lang="en">${escapeHtml(ex.name)}</h2><button type="button" class="image-close" data-close-overlay aria-label="Cerrar ilustración">✕</button></div>${illustration}`, true);
+    ? `<img class="preview-illustration" src="${escapeHtml(source)}" alt="${demoText("Ilustración completa de", "Full illustration of")} ${escapeHtml(ex.name)}" />`
+    : `<svg class="preview-illustration" viewBox="${tileViews[ex.tile] || tileViews[0]}" role="img" aria-label="${demoText("Ilustración completa de", "Full illustration of")} ${escapeHtml(ex.name)}"><image href="./assets/ejercicios-referencia.png" width="684" height="978" /></svg>`;
+  openOverlay(`<div class="image-preview-heading"><h2 id="sheet-title" lang="en">${escapeHtml(ex.name)}</h2><button type="button" class="image-close" data-close-overlay aria-label="${demoText("Cerrar ilustración", "Close illustration")}">✕</button></div>${illustration}`, true);
 }
 function openExerciseForm(id) {
   const ex = id ? getExercise(id) : null;
-  const options = GROUPS.map(group => `<option value="${group}" ${ex?.group === group ? "selected" : ""}>${group}</option>`).join("");
-  openOverlay(`<h2 id="sheet-title">${ex ? "Editar ejercicio" : "Nuevo ejercicio"}</h2>
-    <p>${DEMO_MODE ? "Prueba los cambios en este navegador con datos de ejemplo." : ex ? "Actualiza el nombre, equipo o imagen del movimiento." : "Añade una imagen para reconocerlo rápidamente en el gimnasio."}</p>
+  const options = GROUPS.map(group => `<option value="${group}" ${ex?.group === group ? "selected" : ""}>${demoLabel(group)}</option>`).join("");
+  openOverlay(`<h2 id="sheet-title">${ex ? demoText("Editar ejercicio", "Edit exercise") : demoText("Nuevo ejercicio", "New exercise")}</h2>
+    <p>${DEMO_MODE ? demoText("Prueba los cambios en este navegador con datos de ejemplo.", "Try changes in this browser with sample data.") : ex ? "Actualiza el nombre, equipo o imagen del movimiento." : "Añade una imagen para reconocerlo rápidamente en el gimnasio."}</p>
     <form id="exercise-form" data-edit-id="${ex?.id || ""}">
-      <label class="field-label" for="exercise-name">Nombre en inglés</label>
-      <input id="exercise-name" class="field" name="name" lang="en" required maxlength="90" value="${escapeHtml(ex?.name || "")}" placeholder="Ej. Machine Chest Press" />
-      <label class="field-label" for="exercise-group">Grupo muscular</label>
+      <label class="field-label" for="exercise-name">${demoText("Nombre en inglés", "English name")}</label>
+      <input id="exercise-name" class="field" name="name" lang="en" required maxlength="90" value="${escapeHtml(ex?.name || "")}" placeholder="${demoText("Ej. Machine Chest Press", "e.g. Machine Chest Press")}" />
+      <label class="field-label" for="exercise-group">${demoText("Grupo muscular", "Muscle group")}</label>
       <select id="exercise-group" class="field" name="group">${options}</select>
-      <label class="field-label" for="exercise-equipment">Equipo o máquina</label>
-      <input id="exercise-equipment" class="field" name="equipment" maxlength="90" value="${escapeHtml(ex?.equipment || "")}" placeholder="Ej. Technogym · Polea" />
+      <label class="field-label" for="exercise-equipment">${demoText("Equipo o máquina", "Equipment or machine")}</label>
+      <input id="exercise-equipment" class="field" name="equipment" maxlength="90" value="${escapeHtml(demoLabel(ex?.equipment || ""))}" placeholder="${demoText("Ej. Technogym · Polea", "e.g. Technogym · Cable")}" />
       ${DEMO_MODE ? "" : `<label class="field-label" for="exercise-photo">${ex ? "Cambiar imagen (opcional)" : "Imagen del ejercicio"}</label>
       <input id="exercise-photo" class="file-control" type="file" accept="image/*" ${ex ? "" : "required"} />`}
-      <div class="sheet-buttons"><button type="button" class="secondary-button" data-close-overlay>Cancelar</button><button type="submit" class="primary-button">Guardar ejercicio</button></div>
-      ${ex ? `<button type="button" class="remove-from-day" style="margin-top:16px" data-action="archive-exercise" data-id="${ex.id}">${ex.archived ? "Restaurar ejercicio" : "Archivar ejercicio"}</button>` : ""}
+      <div class="sheet-buttons"><button type="button" class="secondary-button" data-close-overlay>${demoText("Cancelar", "Cancel")}</button><button type="submit" class="primary-button">${demoText("Guardar ejercicio", "Save exercise")}</button></div>
+      ${ex ? `<button type="button" class="remove-from-day" style="margin-top:16px" data-action="archive-exercise" data-id="${ex.id}">${ex.archived ? demoText("Restaurar ejercicio", "Restore exercise") : demoText("Archivar ejercicio", "Archive exercise")}</button>` : ""}
     </form>`);
 }
 function openBackup() {
@@ -1068,11 +1157,11 @@ document.addEventListener("click", async event => {
     const expanded = !catalogDetailsOpen.has(id);
     if (expanded) {
       catalogDetailsOpen.add(id);
-      details.innerHTML = `${performanceWidgetsMarkup(id)}<button type="button" class="secondary-button catalog-edit" data-action="edit-exercise" data-id="${escapeHtml(id)}" aria-label="Editar ${escapeHtml(getExercise(id)?.name || id)}">Editar ejercicio</button>`;
+      details.innerHTML = `${performanceWidgetsMarkup(id)}<button type="button" class="secondary-button catalog-edit" data-action="edit-exercise" data-id="${escapeHtml(id)}" aria-label="${demoText("Editar", "Edit")} ${escapeHtml(getExercise(id)?.name || id)}">${demoText("Editar ejercicio", "Edit exercise")}</button>`;
     } else catalogDetailsOpen.delete(id);
     details.hidden = !expanded;
     button.setAttribute("aria-expanded", String(expanded));
-    button.textContent = expanded ? "Ocultar detalles ⌃" : "Ver detalles ⌄";
+    button.textContent = expanded ? demoText("Ocultar detalles ⌃", "Hide details ⌃") : demoText("Ver detalles ⌄", "View details ⌄");
     return;
   }
   if (action === "return-session") { tab = "today"; render(); window.scrollTo(0, 0); return; }
@@ -1111,10 +1200,10 @@ document.addEventListener("click", async event => {
   if (action === "add-routine") await addRoutineToSession(id);
   if (action === "delete-routine") {
     const routine = state.routines.find(item => item.id === id);
-    if (routine && confirm(`¿Eliminar la rutina «${routine.name}»? Los ejercicios de tus sesiones se conservarán.`)) {
+    if (routine && confirm(`${demoText("¿Eliminar la rutina «", "Delete routine “")}${demoLabel(routine.name)}${demoText("»? Los ejercicios de tus sesiones se conservarán.", "”? The exercises in your sessions will be kept.")}`)) {
       state.routines = state.routines.filter(item => item.id !== id);
-      try { await persistNow(); } catch { showToast("No se pudo guardar el cambio"); return; }
-      closeOverlay(); render(); showToast("Rutina eliminada");
+      try { await persistNow(); } catch { showToast(demoText("No se pudo guardar el cambio", "Could not save the change")); return; }
+      closeOverlay(); render(); showToast(demoText("Rutina eliminada", "Routine deleted"));
     }
   }
   if (action === "view-image") openImagePreview(id);
@@ -1145,19 +1234,19 @@ document.addEventListener("click", async event => {
     const remainingSnapshot = JSON.stringify(sets);
     delete session.completed[id];
     persist(); render();
-    showToast("Serie quitada", () => undoRemovedSet(date, id, removed, index, wasCompleted, completed, remainingSnapshot));
+    showToast(demoText("Serie quitada", "Set removed"), () => undoRemovedSet(date, id, removed, index, wasCompleted, completed, remainingSnapshot));
   }
   if (action === "remove-exercise") { removeExerciseWithUndo(id); return; }
   if (action === "catalog-toggle") {
     if (session.selected.includes(id)) { removeExerciseWithUndo(id); return; }
-    addToSession(id); render(); showToast("Añadido a la sesión");
+    addToSession(id); render(); showToast(demoText("Añadido a la sesión", "Added to session"));
   }
   if (action === "archive-exercise" || action === "restore-exercise") {
     const ex = getExercise(id);
     if (!ex) return;
     ex.archived = action === "archive-exercise";
     persist(); closeOverlay(); render();
-    showToast(ex.archived ? "Ejercicio archivado" : "Ejercicio restaurado");
+    showToast(ex.archived ? demoText("Ejercicio archivado", "Exercise archived") : demoText("Ejercicio restaurado", "Exercise restored"));
   }
   if (action === "export") exportBackup();
   if (action === "import") $("#import-file").click();
@@ -1200,8 +1289,8 @@ document.addEventListener("change", event => {
     const set = ensureSession().sets[event.target.dataset.ex]?.find(item => item.id === event.target.dataset.setId);
     if (!set) return;
     const cardio = getExercise(event.target.dataset.ex)?.group === "Cardio";
-    if (event.target.checked && cardio && !validCardioSet(getExercise(event.target.dataset.ex), set)) { event.target.checked = false; showToast("Anota los minutos primero"); return; }
-    if (event.target.checked && !cardio && (!Number.isInteger(Number(set.reps)) || Number(set.reps) <= 0)) { event.target.checked = false; showToast("Anota las repeticiones primero"); return; }
+    if (event.target.checked && cardio && !validCardioSet(getExercise(event.target.dataset.ex), set)) { event.target.checked = false; showToast(demoText("Anota los minutos primero", "Enter minutes first")); return; }
+    if (event.target.checked && !cardio && (!Number.isInteger(Number(set.reps)) || Number(set.reps) <= 0)) { event.target.checked = false; showToast(demoText("Anota las repeticiones primero", "Enter repetitions first")); return; }
     delete set.prefilled;
     set.done = event.target.checked;
     set.autoDone = false;
@@ -1232,16 +1321,16 @@ document.addEventListener("submit", async event => {
     const exercise = existing || { id: uid(), tile: null };
     exercise.name = form.elements.name.value.trim();
     exercise.group = form.elements.group.value;
-    exercise.equipment = form.elements.equipment.value.trim() || "Equipo no indicado";
+    exercise.equipment = form.elements.equipment.value.trim() || demoText("Equipo no indicado", "Equipment not specified");
     if (image) exercise.image = image;
     if (!existing) state.exercises.push(exercise);
     persist();
     closeOverlay();
     render();
-    showToast(existing ? "Ejercicio actualizado" : "Ejercicio añadido");
+    showToast(existing ? demoText("Ejercicio actualizado", "Exercise updated") : demoText("Ejercicio añadido", "Exercise added"));
   } catch (error) {
     console.error(error);
-    showToast("No se pudo guardar el ejercicio");
+    showToast(demoText("No se pudo guardar el ejercicio", "Could not save exercise"));
     button.disabled = false;
   }
 });
@@ -1324,7 +1413,7 @@ async function init() {
     startOfflineImages().catch(console.warn);
   } catch (error) {
     console.error(error);
-    $("#view").innerHTML = `<div class="empty-state"><h2>No se pudo abrir el registro</h2><p>Revisa que el navegador permita guardar datos y vuelve a cargar la página.</p></div>`;
+    $("#view").innerHTML = `<div class="empty-state"><h2>${demoText("No se pudo abrir el registro", "Could not open workout log")}</h2><p>${demoText("Revisa que el navegador permita guardar datos y vuelve a cargar la página.", "Check that your browser allows data storage and reload the page.")}</p></div>`;
   }
 }
 init();
