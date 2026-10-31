@@ -23,7 +23,7 @@ The native dialog uses browser-provided focus containment instead of adding a cu
 - After fixes: 114/114 Node tests; `node --check app.js`, `node --check sw.js`, and `node scripts/update-image-manifest.cjs --check` pass.
 - `tests/browser-engineering-review.cjs` covers 320/390/768/1280 px navigation, native modal focus, routine save/reload, session auto-completion, drop sets, read-only history, malformed imports, transaction-abort recovery, escaped IDs, persistence and an offline reload. The required `test` CI job runs it and retains representative screenshots.
 - Local browser execution was attempted but this executor denies Chromium's required socket operation. Automated browser outcomes must therefore be read from the linked PR's CI, not inferred from the Node results.
-- Production demo was inspected with the available interactive cloud browser before changes. GitHub push was blocked by automatic approval review, which requires explicit publication approval. No PR, CI browser run, merge or deployment has occurred. The delivery message distinguishes these pending checks from passing local checks.
+- Production demo was inspected with the available interactive cloud browser before changes. Publication was subsequently authorized. Draft PR #19 runs the required CI browser checks and records their outcomes; the final delivery message distinguishes passing checks from any pending or failed checks. This task leaves the PR in draft without merging or deploying.
 
 ## Remaining risks and follow-up
 
