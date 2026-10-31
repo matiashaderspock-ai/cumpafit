@@ -23,6 +23,12 @@ fs.mkdirSync(output, { recursive: true });
     }
     await page.setViewportSize({ width: 390, height: 844 });
     await page.locator('[data-tab="routines"]').click();
+    const backgroundTabs = await page.locator('[data-tab]').all();
+    assert.ok(backgroundTabs.length > 0, 'Background navigation controls exist');
+    for (const tab of backgroundTabs) {
+      await tab.focus();
+      assert.ok(await tab.evaluate(e => e === document.activeElement), 'Navigation controls can receive focus before the modal opens');
+    }
     await page.locator('[data-action="new-routine"]').click();
     assert.equal(await page.locator('#overlay').evaluate(e => e.open && e.matches(':modal')), true);
     await page.locator('#routine-name').press('Shift+Tab');
@@ -30,14 +36,19 @@ fs.mkdirSync(output, { recursive: true });
       tag: document.activeElement.tagName, id: document.activeElement.id,
       documentFocused: document.hasFocus(),
       inDialog: document.querySelector('#overlay').contains(document.activeElement),
+      onBody: document.activeElement === document.body,
     }));
     console.log('Native dialog backward focus:', backwardsFocus);
     await page.screenshot({ path: `${output}/routine-keyboard.png` });
     // Native dialogs may move focus to browser chrome, represented by BODY.
     // The regression is reaching a background app control, such as History.
-    assert.ok(backwardsFocus.inDialog || backwardsFocus.tag === 'BODY', 'Shift+Tab must not focus background app controls');
+    assert.ok(backwardsFocus.inDialog || backwardsFocus.onBody, 'Shift+Tab must not focus background app controls');
     await page.keyboard.press('Shift+Tab');
     assert.ok(await page.evaluate(() => document.querySelector('#overlay').contains(document.activeElement) || document.activeElement === document.body), 'Backward focus stays outside background controls');
+    for (const tab of backgroundTabs) {
+      await tab.focus();
+      assert.ok(await tab.evaluate(e => e !== document.activeElement), 'Background navigation controls cannot receive focus while the modal is open');
+    }
     await page.locator('#routine-name').fill('Review routine');
     await page.locator('[data-routine-ex]').first().check();
     await page.screenshot({ path: `${output}/routine-mobile.png` });
