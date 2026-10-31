@@ -477,7 +477,7 @@ function ensureSession(date = activeDate) {
   return state.sessions[date];
 }
 function syncSessionDay() {
-  if (!state) return false;
+  if (!state || importingBackup) return false;
   const today = todayISO();
   if (today === observedToday) return false;
   const wasViewingToday = activeDate === observedToday;
@@ -881,8 +881,9 @@ async function saveRoutine() {
   button.disabled = true;
   const routine = { id: routineDraft.id || uid(), name, group: routineDraft.group, exerciseIds };
   const index = state.routines.findIndex(item => item.id === routine.id);
-  if (index < 0) state.routines.push(routine); else state.routines[index] = routine;
-  try { await persistNow(); } catch { button.disabled = false; showToast(demoText("No se pudo guardar la rutina", "Could not save routine")); return; }
+  const previous = state.routines;
+  state.routines = index < 0 ? [...previous, routine] : previous.map((item, i) => i === index ? routine : item);
+  try { await persistNow(); } catch { state.routines = previous; button.disabled = false; showToast(demoText("No se pudo guardar la rutina", "Could not save routine")); return; }
   closeOverlay(); tab = "routines"; render(); window.scrollTo(0, 0);
   showToast(index < 0 ? demoText("Rutina guardada", "Routine saved") : demoText("Rutina actualizada", "Routine updated"));
 }
@@ -1051,7 +1052,7 @@ function openExerciseForm(id) {
       ${DEMO_MODE ? "" : `<label class="field-label" for="exercise-photo">${ex ? "Cambiar imagen (opcional)" : "Imagen del ejercicio"}</label>
       <input id="exercise-photo" class="file-control" type="file" accept="image/*" ${ex ? "" : "required"} />`}
       <div class="sheet-buttons"><button type="button" class="secondary-button" data-close-overlay>${demoText("Cancelar", "Cancel")}</button><button type="submit" class="primary-button">${demoText("Guardar ejercicio", "Save exercise")}</button></div>
-      ${ex ? `<button type="button" class="remove-from-day" style="margin-top:16px" data-action="archive-exercise" data-id="${escapeHtml(ex.id)}">${ex.archived ? demoText("Restaurar ejercicio", "Restore exercise") : demoText("Archivar ejercicio", "Archive exercise")}</button>` : ""}
+      ${ex ? `<button type="button" class="remove-from-day" style="margin-top:16px" data-action="${ex.archived ? "restore-exercise" : "archive-exercise"}" data-id="${escapeHtml(ex.id)}">${ex.archived ? demoText("Restaurar ejercicio", "Restore exercise") : demoText("Archivar ejercicio", "Archive exercise")}</button>` : ""}
     </form>`);
 }
 function openBackup() {
@@ -1113,11 +1114,11 @@ async function exportBackup() {
 }
 async function importBackup(file) {
   if (DEMO_MODE || importingBackup) return;
+  importingBackup = true;
   let validated = false;
   try {
     const replacement = validateBackup(JSON.parse(await file.text()));
     if (!confirm("Esto reemplazará todos los ejercicios, rutinas y sesiones de este dispositivo. ¿Continuar?")) return;
-    importingBackup = true;
     validated = true;
     migrateExerciseNames(replacement);
     // Finish the current workout's pending save before replacing it. Keep the
@@ -1264,8 +1265,9 @@ document.addEventListener("click", async event => {
   if (action === "delete-routine") {
     const routine = state.routines.find(item => item.id === id);
     if (routine && confirm(`${demoText("¿Eliminar la rutina «", "Delete routine “")}${demoLabel(routine.name)}${demoText("»? Los ejercicios de tus sesiones se conservarán.", "”? The exercises in your sessions will be kept.")}`)) {
+      const previous = state.routines;
       state.routines = state.routines.filter(item => item.id !== id);
-      try { await persistNow(); } catch { showToast(demoText("No se pudo guardar el cambio", "Could not save the change")); return; }
+      try { await persistNow(); } catch { state.routines = previous; showToast(demoText("No se pudo guardar el cambio", "Could not save the change")); return; }
       closeOverlay(); render(); showToast(demoText("Rutina eliminada", "Routine deleted"));
     }
   }
@@ -1381,13 +1383,14 @@ document.addEventListener("submit", async event => {
     const file = DEMO_MODE ? undefined : $("#exercise-photo").files?.[0];
     if (!DEMO_MODE && !existing && !file) throw new Error("Falta imagen");
     const image = file ? await resizePhoto(file) : existing?.image;
-    const exercise = existing || { id: uid(), tile: null };
+    const exercise = existing ? { ...existing } : { id: uid(), tile: null };
     exercise.name = form.elements.name.value.trim();
     exercise.group = form.elements.group.value;
     exercise.equipment = form.elements.equipment.value.trim() || demoText("Equipo no indicado", "Equipment not specified");
     if (image) exercise.image = image;
-    if (!existing) state.exercises.push(exercise);
-    persist();
+    const previous = state.exercises;
+    state.exercises = existing ? previous.map(item => item.id === id ? exercise : item) : [...previous, exercise];
+    try { await persistNow(); } catch (error) { state.exercises = previous; throw error; }
     closeOverlay();
     render();
     showToast(existing ? demoText("Ejercicio actualizado", "Exercise updated") : demoText("Ejercicio añadido", "Exercise added"));

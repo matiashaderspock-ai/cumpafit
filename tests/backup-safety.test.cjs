@@ -22,6 +22,7 @@ function app() {
   const run = code => vm.runInContext(code, context);
   run('state = initialState(); writeState = store; showToast = recordToast; render = () => {}; closeOverlay = () => {};');
   return { run, writes, messages, fail() { fail = true; }, get confirmations() { return confirmations; },
+    context,
     async import(backup) { context.file = { text: async () => JSON.stringify(backup) }; await run('importBackup(file)'); },
   };
 }
@@ -65,6 +66,19 @@ test('replacement failure after saving the current workout keeps that workout ac
   await a.import(backup());
   assert.equal(a.run('JSON.stringify(state)'), before);
   assert.equal(JSON.stringify(a.writes.at(-1)), before);
+});
+
+test('a second import cannot overtake an in-flight file read', async () => {
+  const a = app();
+  let release;
+  a.context.slowFile = { text: () => new Promise(resolve => { release = resolve; }) };
+  const first = a.run('importBackup(slowFile)');
+  await a.import(backup());
+  assert.equal(a.confirmations, 0);
+  release(JSON.stringify(backup()));
+  await first;
+  assert.equal(a.confirmations, 1);
+  assert.equal(a.messages.at(-1), 'Respaldo importado');
 });
 
 test('version-1 drafts, numeric metrics, orphan history and optional routines remain importable', async () => {
