@@ -32,6 +32,7 @@ fs.mkdirSync(output, { recursive: true });
       inDialog: document.querySelector('#overlay').contains(document.activeElement),
     }));
     console.log('Native dialog backward focus:', backwardsFocus);
+    await page.screenshot({ path: `${output}/routine-keyboard.png` });
     // Native dialogs may move focus to browser chrome, represented by BODY.
     // The regression is reaching a background app control, such as History.
     assert.ok(backwardsFocus.inDialog || backwardsFocus.tag === 'BODY', 'Shift+Tab must not focus background app controls');
