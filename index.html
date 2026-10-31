@@ -6,14 +6,14 @@
     <meta name="theme-color" content="#111b25" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Cumpafit" />
-    <link rel="apple-touch-icon" sizes="180x180" href="./assets/apple-touch-icon.png?v=45" />
+    <link rel="apple-touch-icon" sizes="180x180" href="./assets/apple-touch-icon.png?v=46" />
     <meta name="description" content="Tu catálogo de ejercicios y registro de entrenamiento." />
     <title>Cumpafit · Rutinas</title>
-    <link rel="icon" type="image/svg+xml" href="./assets/icon.svg?v=45" />
-    <link rel="manifest" href="./manifest.webmanifest?v=45" />
-    <script src="./demo-mode.js?v=45"></script>
-    <link rel="stylesheet" href="./styles.css?v=45" />
-    <script src="./app.js?v=45" defer></script>
+    <link rel="icon" type="image/svg+xml" href="./assets/icon.svg?v=46" />
+    <link rel="manifest" href="./manifest.webmanifest?v=46" />
+    <script src="./demo-mode.js?v=46"></script>
+    <link rel="stylesheet" href="./styles.css?v=46" />
+    <script src="./app.js?v=46" defer></script>
   </head>
   <body>
     <aside id="demo-banner" class="demo-banner" aria-label="Demo mode">
@@ -31,13 +31,13 @@
       </nav>
     </div>
 
-    <div id="overlay" class="overlay hidden" aria-hidden="true">
+    <dialog id="overlay" class="overlay hidden" aria-hidden="true" aria-labelledby="sheet-title">
       <div class="overlay-backdrop" data-close-overlay></div>
-      <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+      <section class="sheet">
         <div class="sheet-handle"></div>
         <div id="sheet-content"></div>
       </section>
-    </div>
+    </dialog>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
     <input id="import-file" type="file" accept="application/json,.json" hidden />
   </body>

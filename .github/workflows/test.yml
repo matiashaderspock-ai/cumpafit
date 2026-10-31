@@ -11,10 +11,27 @@ permissions:
 jobs:
   test:
     name: test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 'lts/*'
       - run: node --test tests/*.test.cjs
+      - name: Install browser checks
+        run: |
+          npm install --prefix /tmp/cumpafit-browser playwright@1.58.2 --no-audit --no-fund
+          node /tmp/cumpafit-browser/node_modules/playwright/cli.js install --with-deps chromium
+      - name: Verify mobile flows, imports and offline shell
+        env:
+          NODE_PATH: /tmp/cumpafit-browser/node_modules
+          CUMPAFIT_URL: http://127.0.0.1:4173/
+        run: |
+          export CHROMIUM_PATH="$(node -e 'process.stdout.write(require("playwright").chromium.executablePath())')"
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/cumpafit-browser-server.log 2>&1 &
+          node tests/browser-engineering-review.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: review-screenshots
+          path: /tmp/cumpafit-review/
