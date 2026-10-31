@@ -26,7 +26,17 @@ fs.mkdirSync(output, { recursive: true });
     await page.locator('[data-action="new-routine"]').click();
     assert.equal(await page.locator('#overlay').evaluate(e => e.open && e.matches(':modal')), true);
     await page.locator('#routine-name').press('Shift+Tab');
-    assert.ok(await page.evaluate(() => document.querySelector('#overlay').contains(document.activeElement)), 'Shift+Tab cannot escape the modal');
+    const backwardsFocus = await page.evaluate(() => ({
+      tag: document.activeElement.tagName, id: document.activeElement.id,
+      documentFocused: document.hasFocus(),
+      inDialog: document.querySelector('#overlay').contains(document.activeElement),
+    }));
+    console.log('Native dialog backward focus:', backwardsFocus);
+    // Native dialogs may move focus to browser chrome, represented by BODY.
+    // The regression is reaching a background app control, such as History.
+    assert.ok(backwardsFocus.inDialog || backwardsFocus.tag === 'BODY', 'Shift+Tab must not focus background app controls');
+    await page.keyboard.press('Shift+Tab');
+    assert.ok(await page.evaluate(() => document.querySelector('#overlay').contains(document.activeElement) || document.activeElement === document.body), 'Backward focus stays outside background controls');
     await page.locator('#routine-name').fill('Review routine');
     await page.locator('[data-routine-ex]').first().check();
     await page.screenshot({ path: `${output}/routine-mobile.png` });
@@ -83,7 +93,12 @@ fs.mkdirSync(output, { recursive: true });
     await log.locator('.history-calendar').waitFor();
     const before = await readState();
     await log.locator('#backup-open').click();
-    const upload = backup => log.locator('#import-file').setInputFiles({ name: 'review.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(backup)) });
+    const upload = async backup => {
+      const choosing = log.waitForEvent('filechooser');
+      await log.locator('[data-action="import"]').click();
+      const chooser = await choosing;
+      await chooser.setFiles({ name: 'review.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(backup)) });
+    };
     await upload({ version: 1, exercises: [], sessions: [] });
     await log.getByText('El archivo no es un respaldo válido', { exact: true }).waitFor();
     assert.deepEqual(await readState(), before, 'Malformed backups cannot replace workouts');
