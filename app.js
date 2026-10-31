@@ -381,11 +381,13 @@ let catalogSearch = "";
 let saveTimer;
 let saveChain = Promise.resolve();
 let resettingDemo = false;
+let importingBackup = false;
 let toastTimer;
 let undoAction;
 const sessionHistoryOpen = new Set();
 const catalogDetailsOpen = new Set();
 let routineDraft;
+let overlayReturnFocus;
 let historyMonth = activeDate.slice(0, 7);
 
 function openDB() {
@@ -475,7 +477,7 @@ function ensureSession(date = activeDate) {
   return state.sessions[date];
 }
 function syncSessionDay() {
-  if (!state) return false;
+  if (!state || importingBackup) return false;
   const today = todayISO();
   if (today === observedToday) return false;
   const wasViewingToday = activeDate === observedToday;
@@ -785,7 +787,7 @@ function renderSetFields(ex, set, index) {
   const fields = ex.group === "Cardio"
     ? [["minutes", demoText("Minutos", "Minutes"), set.minutes], [cardioMetric(ex).field, cardioMetric(ex).label, cardioValue(ex, set)]]
     : [["kg", demoText("Peso kg", "Weight kg"), set.kg], ["reps", demoText("Repeticiones", "Repetitions"), set.reps]];
-  return fields.map(([field, label, value]) => `<input class="set-input" type="${field === "reps" ? "number" : "text"}" ${field === "reps" ? 'min="0"' : ""} inputmode="${field === "reps" ? "numeric" : "decimal"}" placeholder="—" value="${escapeHtml(value)}" data-set-field="${field}" data-ex="${ex.id}" data-set-id="${set.id}" aria-label="${label} ${demoText("serie", "set")} ${index + 1}${set.dropSet ? " Drop Set" : ""} ${demoText("de", "of")} ${escapeHtml(ex.name)}" />`).join("");
+  return fields.map(([field, label, value]) => `<input class="set-input" type="${field === "reps" ? "number" : "text"}" ${field === "reps" ? 'min="0"' : ""} inputmode="${field === "reps" ? "numeric" : "decimal"}" placeholder="—" value="${escapeHtml(value)}" data-set-field="${field}" data-ex="${escapeHtml(ex.id)}" data-set-id="${escapeHtml(set.id)}" aria-label="${label} ${demoText("serie", "set")} ${index + 1}${set.dropSet ? " Drop Set" : ""} ${demoText("de", "of")} ${escapeHtml(ex.name)}" />`).join("");
 }
 function refreshSetProgress(input) {
   // Refresh progress without replacing inputs or interrupting the phone keyboard.
@@ -813,9 +815,9 @@ function renderSessionExercise(ex, session, index) {
   const done = isExerciseComplete(session, ex.id);
   const pair = `${demoText("Ejercicio", "Exercise")} ${index + 1}`;
   return `<article class="session-card${done ? " done" : ""}">
-    <div class="session-main">${imageMarkup(ex)}<h3 class="session-heading" title="${escapeHtml(`${pair} · ${demoLabel(ex.group)} · ${ex.name}`)}"><span class="exercise-kicker">${demoText("EJ.", "EX.")} ${index + 1} · ${escapeHtml(demoLabel(ex.group))} · </span><span class="session-exercise-name" lang="en">${escapeHtml(ex.name)}</span></h3><button type="button" class="complete-button${done ? " done" : ""}" data-action="toggle-complete" data-id="${ex.id}" aria-label="${done ? demoText("Marcar pendiente", "Mark incomplete") : demoText("Marcar completado", "Mark complete")}: ${escapeHtml(ex.name)}" aria-pressed="${done}"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></button></div>
-    ${sessionPerformanceMarkup(ex.id)}<button type="button" class="expand-button" data-action="expand" data-id="${ex.id}" aria-expanded="${isOpen}"><span>${sets.filter(set => set.done).length} ${demoText("de", "of")} ${sets.length} ${demoText("series hechas", "sets completed")}</span><svg viewBox="0 0 24 24"><path d="m5 9 7 7 7-7"/></svg></button>
-    ${isOpen ? `<div class="sets-panel"><div class="set-header"><span>${demoText("Serie", "Set")}</span><span>${ex.group === "Cardio" ? demoText("Minutos", "Minutes") : demoText("Peso kg", "Weight kg")}</span><span>${ex.group === "Cardio" ? cardioMetric(ex).heading : "Reps"}</span><span>${demoText("Hecha", "Done")}</span><span></span></div>${sets.map((set, i) => `<div class="set-row"><span class="set-index">${String(i + 1).padStart(2, "0")}${set.dropSet ? '<small class="drop-set-label" title="Drop Set">DS</small>' : ""}</span>${renderSetFields(ex, set, i)}<input class="set-check" type="checkbox" ${set.done ? "checked" : ""} data-set-done data-ex="${ex.id}" data-set-id="${set.id}" aria-label="${demoText("Serie", "Set")} ${i + 1}${set.dropSet ? " Drop Set" : ""} ${demoText("hecha", "completed")}" /><button type="button" class="remove-set" data-action="remove-set" data-id="${ex.id}" data-set-id="${set.id}" aria-label="${demoText("Quitar serie", "Remove set")} ${i + 1}${set.dropSet ? " Drop Set" : ""}"><svg viewBox="0 0 24 24"><path d="M5 7h14m-12 0 1 13h8l1-13M9 7V4h6v3"/></svg></button></div>`).join("")}<div class="panel-actions"><div class="add-set-actions"><button type="button" class="add-set" data-action="add-set" data-id="${ex.id}" aria-label="${demoText("Añadir serie a", "Add set to")} ${escapeHtml(ex.name)}" title="${demoText("Añadir serie", "Add set")}"><span aria-hidden="true">+</span></button>${ex.group === "Cardio" ? "" : `<button type="button" class="add-set add-drop-set" data-action="add-drop-set" data-id="${ex.id}" aria-label="${demoText("Añadir Drop Set a", "Add Drop Set to")} ${escapeHtml(ex.name)}" title="${demoText("Añadir Drop Set", "Add Drop Set")}"><span aria-hidden="true">+ DS</span></button>`}</div><button type="button" class="remove-from-day" data-action="remove-exercise" data-id="${ex.id}">${demoText("Quitar de hoy", "Remove from today")}</button></div></div>` : ""}</article>`;
+    <div class="session-main">${imageMarkup(ex)}<h3 class="session-heading" title="${escapeHtml(`${pair} · ${demoLabel(ex.group)} · ${ex.name}`)}"><span class="exercise-kicker">${demoText("EJ.", "EX.")} ${index + 1} · ${escapeHtml(demoLabel(ex.group))} · </span><span class="session-exercise-name" lang="en">${escapeHtml(ex.name)}</span></h3><button type="button" class="complete-button${done ? " done" : ""}" data-action="toggle-complete" data-id="${escapeHtml(ex.id)}" aria-label="${done ? demoText("Marcar pendiente", "Mark incomplete") : demoText("Marcar completado", "Mark complete")}: ${escapeHtml(ex.name)}" aria-pressed="${done}"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></button></div>
+    ${sessionPerformanceMarkup(ex.id)}<button type="button" class="expand-button" data-action="expand" data-id="${escapeHtml(ex.id)}" aria-expanded="${isOpen}"><span>${sets.filter(set => set.done).length} ${demoText("de", "of")} ${sets.length} ${demoText("series hechas", "sets completed")}</span><svg viewBox="0 0 24 24"><path d="m5 9 7 7 7-7"/></svg></button>
+    ${isOpen ? `<div class="sets-panel"><div class="set-header"><span>${demoText("Serie", "Set")}</span><span>${ex.group === "Cardio" ? demoText("Minutos", "Minutes") : demoText("Peso kg", "Weight kg")}</span><span>${ex.group === "Cardio" ? cardioMetric(ex).heading : "Reps"}</span><span>${demoText("Hecha", "Done")}</span><span></span></div>${sets.map((set, i) => `<div class="set-row"><span class="set-index">${String(i + 1).padStart(2, "0")}${set.dropSet ? '<small class="drop-set-label" title="Drop Set">DS</small>' : ""}</span>${renderSetFields(ex, set, i)}<input class="set-check" type="checkbox" ${set.done ? "checked" : ""} data-set-done data-ex="${escapeHtml(ex.id)}" data-set-id="${escapeHtml(set.id)}" aria-label="${demoText("Serie", "Set")} ${i + 1}${set.dropSet ? " Drop Set" : ""} ${demoText("hecha", "completed")}" /><button type="button" class="remove-set" data-action="remove-set" data-id="${escapeHtml(ex.id)}" data-set-id="${escapeHtml(set.id)}" aria-label="${demoText("Quitar serie", "Remove set")} ${i + 1}${set.dropSet ? " Drop Set" : ""}"><svg viewBox="0 0 24 24"><path d="M5 7h14m-12 0 1 13h8l1-13M9 7V4h6v3"/></svg></button></div>`).join("")}<div class="panel-actions"><div class="add-set-actions"><button type="button" class="add-set" data-action="add-set" data-id="${escapeHtml(ex.id)}" aria-label="${demoText("Añadir serie a", "Add set to")} ${escapeHtml(ex.name)}" title="${demoText("Añadir serie", "Add set")}"><span aria-hidden="true">+</span></button>${ex.group === "Cardio" ? "" : `<button type="button" class="add-set add-drop-set" data-action="add-drop-set" data-id="${escapeHtml(ex.id)}" aria-label="${demoText("Añadir Drop Set a", "Add Drop Set to")} ${escapeHtml(ex.name)}" title="${demoText("Añadir Drop Set", "Add Drop Set")}"><span aria-hidden="true">+ DS</span></button>`}</div><button type="button" class="remove-from-day" data-action="remove-exercise" data-id="${escapeHtml(ex.id)}">${demoText("Quitar de hoy", "Remove from today")}</button></div></div>` : ""}</article>`;
 }
 function renderCatalog() {
   ensureSession();
@@ -831,7 +833,7 @@ function renderCatalogCards() {
   if (!filtered.length) return `<div class="empty-state" style="grid-column:1/-1"><h3>${demoText("No hay coincidencias", "No matches")}</h3><p>${demoText("Prueba otra búsqueda o añade un ejercicio.", "Try another search or add an exercise.")}</p></div>`;
   return filtered.map(ex => {
     const details = catalogDetailsOpen.has(ex.id);
-    return `<article class="catalog-card">${catalogImageButton(ex)}<div class="catalog-content"><div class="catalog-card-heading"><div class="exercise-kicker">${escapeHtml(demoLabel(ex.group))}</div>${favoriteButton(ex)}</div><h3 class="exercise-title" lang="en">${escapeHtml(ex.name)}</h3><div class="exercise-meta">${escapeHtml(demoLabel(ex.equipment))}</div><div class="catalog-actions">${ex.archived ? `<button type="button" class="catalog-add" data-action="restore-exercise" data-id="${ex.id}">${demoText("Restaurar", "Restore")}</button>` : `<button type="button" class="catalog-add${selected.includes(ex.id) ? " selected" : ""}" data-action="catalog-toggle" data-id="${ex.id}">${selected.includes(ex.id) ? demoText("✓ En sesión", "✓ In session") : demoText("+ Añadir", "+ Add")}</button>`}</div><button type="button" class="catalog-details-toggle" data-action="catalog-details" data-id="${escapeHtml(ex.id)}" aria-expanded="${details}">${details ? demoText("Ocultar detalles ⌃", "Hide details ⌃") : demoText("Ver detalles ⌄", "View details ⌄")}</button><div class="catalog-details" ${details ? "" : "hidden"}>${details ? `${performanceWidgetsMarkup(ex.id)}<button type="button" class="secondary-button catalog-edit" data-action="edit-exercise" data-id="${ex.id}" aria-label="${demoText("Editar", "Edit")} ${escapeHtml(ex.name)}">${demoText("Editar ejercicio", "Edit exercise")}</button>` : ""}</div></div></article>`;
+    return `<article class="catalog-card">${catalogImageButton(ex)}<div class="catalog-content"><div class="catalog-card-heading"><div class="exercise-kicker">${escapeHtml(demoLabel(ex.group))}</div>${favoriteButton(ex)}</div><h3 class="exercise-title" lang="en">${escapeHtml(ex.name)}</h3><div class="exercise-meta">${escapeHtml(demoLabel(ex.equipment))}</div><div class="catalog-actions">${ex.archived ? `<button type="button" class="catalog-add" data-action="restore-exercise" data-id="${escapeHtml(ex.id)}">${demoText("Restaurar", "Restore")}</button>` : `<button type="button" class="catalog-add${selected.includes(ex.id) ? " selected" : ""}" data-action="catalog-toggle" data-id="${escapeHtml(ex.id)}">${selected.includes(ex.id) ? demoText("✓ En sesión", "✓ In session") : demoText("+ Añadir", "+ Add")}</button>`}</div><button type="button" class="catalog-details-toggle" data-action="catalog-details" data-id="${escapeHtml(ex.id)}" aria-expanded="${details}">${details ? demoText("Ocultar detalles ⌃", "Hide details ⌃") : demoText("Ver detalles ⌄", "View details ⌄")}</button><div class="catalog-details" ${details ? "" : "hidden"}>${details ? `${performanceWidgetsMarkup(ex.id)}<button type="button" class="secondary-button catalog-edit" data-action="edit-exercise" data-id="${escapeHtml(ex.id)}" aria-label="${demoText("Editar", "Edit")} ${escapeHtml(ex.name)}">${demoText("Editar ejercicio", "Edit exercise")}</button>` : ""}</div></div></article>`;
   }).join("");
 }
 function availableRoutineExercises(routine) {
@@ -879,8 +881,9 @@ async function saveRoutine() {
   button.disabled = true;
   const routine = { id: routineDraft.id || uid(), name, group: routineDraft.group, exerciseIds };
   const index = state.routines.findIndex(item => item.id === routine.id);
-  if (index < 0) state.routines.push(routine); else state.routines[index] = routine;
-  try { await persistNow(); } catch { button.disabled = false; showToast(demoText("No se pudo guardar la rutina", "Could not save routine")); return; }
+  const previous = state.routines;
+  state.routines = index < 0 ? [...previous, routine] : previous.map((item, i) => i === index ? routine : item);
+  try { await persistNow(); } catch { state.routines = previous; button.disabled = false; showToast(demoText("No se pudo guardar la rutina", "Could not save routine")); return; }
   closeOverlay(); tab = "routines"; render(); window.scrollTo(0, 0);
   showToast(index < 0 ? demoText("Rutina guardada", "Routine saved") : demoText("Rutina actualizada", "Routine updated"));
 }
@@ -998,11 +1001,16 @@ async function deleteSession(date) {
   return true;
 }
 function openOverlay(html, imagePreview = false) {
+  if (!$("#overlay").open) {
+    const element = document.activeElement;
+    overlayReturnFocus = { element, id: element?.id, data: { ...element?.dataset } };
+  }
   $("#overlay").classList.toggle("image-preview-open", imagePreview);
   $(".sheet").classList.toggle("image-sheet", imagePreview);
   $("#sheet-content").innerHTML = html;
   $("#overlay").classList.remove("hidden");
   $("#overlay").setAttribute("aria-hidden", "false");
+  if (!$("#overlay").open) $("#overlay").showModal();
   document.body.style.overflow = "hidden";
   $(".sheet button, .sheet input")?.focus();
 }
@@ -1010,6 +1018,7 @@ function closeOverlay() {
   routineDraft = undefined;
   $("#overlay").classList.add("hidden");
   $("#overlay").setAttribute("aria-hidden", "true");
+  if ($("#overlay").open) $("#overlay").close();
   $("#overlay").classList.remove("image-preview-open");
   $(".sheet").classList.remove("image-sheet");
   document.body.style.overflow = "";
@@ -1033,7 +1042,7 @@ function openExerciseForm(id) {
   const options = GROUPS.map(group => `<option value="${group}" ${ex?.group === group ? "selected" : ""}>${demoLabel(group)}</option>`).join("");
   openOverlay(`<h2 id="sheet-title">${ex ? demoText("Editar ejercicio", "Edit exercise") : demoText("Nuevo ejercicio", "New exercise")}</h2>
     <p>${DEMO_MODE ? demoText("Prueba los cambios en este navegador con datos de ejemplo.", "Try changes in this browser with sample data.") : ex ? "Actualiza el nombre, equipo o imagen del movimiento." : "Añade una imagen para reconocerlo rápidamente en el gimnasio."}</p>
-    <form id="exercise-form" data-edit-id="${ex?.id || ""}">
+    <form id="exercise-form" data-edit-id="${escapeHtml(ex?.id || "")}">
       <label class="field-label" for="exercise-name">${demoText("Nombre en inglés", "English name")}</label>
       <input id="exercise-name" class="field" name="name" lang="en" required maxlength="90" value="${escapeHtml(ex?.name || "")}" placeholder="${demoText("Ej. Machine Chest Press", "e.g. Machine Chest Press")}" />
       <label class="field-label" for="exercise-group">${demoText("Grupo muscular", "Muscle group")}</label>
@@ -1043,7 +1052,7 @@ function openExerciseForm(id) {
       ${DEMO_MODE ? "" : `<label class="field-label" for="exercise-photo">${ex ? "Cambiar imagen (opcional)" : "Imagen del ejercicio"}</label>
       <input id="exercise-photo" class="file-control" type="file" accept="image/*" ${ex ? "" : "required"} />`}
       <div class="sheet-buttons"><button type="button" class="secondary-button" data-close-overlay>${demoText("Cancelar", "Cancel")}</button><button type="submit" class="primary-button">${demoText("Guardar ejercicio", "Save exercise")}</button></div>
-      ${ex ? `<button type="button" class="remove-from-day" style="margin-top:16px" data-action="archive-exercise" data-id="${ex.id}">${ex.archived ? demoText("Restaurar ejercicio", "Restore exercise") : demoText("Archivar ejercicio", "Archive exercise")}</button>` : ""}
+      ${ex ? `<button type="button" class="remove-from-day" style="margin-top:16px" data-action="${ex.archived ? "restore-exercise" : "archive-exercise"}" data-id="${escapeHtml(ex.id)}">${ex.archived ? demoText("Restaurar ejercicio", "Restore exercise") : demoText("Archivar ejercicio", "Archive exercise")}</button>` : ""}
     </form>`);
 }
 function openBackup() {
@@ -1104,17 +1113,21 @@ async function exportBackup() {
   showToast("Respaldo descargado");
 }
 async function importBackup(file) {
-  if (DEMO_MODE) return;
+  if (DEMO_MODE || importingBackup) return;
+  importingBackup = true;
+  let validated = false;
   try {
-    const parsed = JSON.parse(await file.text());
-    if (parsed.version !== 1 || !Array.isArray(parsed.exercises) || !parsed.sessions || typeof parsed.sessions !== "object") throw new Error("Formato no válido");
-    if (parsed.routines !== undefined && (!Array.isArray(parsed.routines) || parsed.routines.some(routine => !routine || typeof routine.id !== "string" || typeof routine.name !== "string" || !GROUPS.includes(routine.group) || !Array.isArray(routine.exerciseIds) || routine.exerciseIds.some(id => typeof id !== "string")) || new Set(parsed.routines.map(routine => routine.id)).size !== parsed.routines.length)) throw new Error("Rutinas no válidas");
+    const replacement = validateBackup(JSON.parse(await file.text()));
     if (!confirm("Esto reemplazará todos los ejercicios, rutinas y sesiones de este dispositivo. ¿Continuar?")) return;
-    state = { version: 1, exercises: parsed.exercises, sessions: parsed.sessions, routines: (parsed.routines || []).map(routine => ({ ...routine, exerciseIds: [...new Set(routine.exerciseIds)] })) };
-    migrateExerciseNames(state);
-    clearTimeout(saveTimer);
-    await saveChain;
-    await writeState(structuredClone(state));
+    validated = true;
+    migrateExerciseNames(replacement);
+    // Finish the current workout's pending save before replacing it. Keep the
+    // active state until the replacement transaction commits successfully.
+    await persistNow();
+    const write = saveChain.then(() => writeState(structuredClone(replacement)));
+    saveChain = write.catch(error => console.error(error));
+    await write;
+    state = replacement;
     activeDate = todayISO();
     tab = "today";
     expandedId = state.exercises[0]?.id || "";
@@ -1123,8 +1136,59 @@ async function importBackup(file) {
     showToast("Respaldo importado");
   } catch (error) {
     console.error(error);
-    showToast("El archivo no es un respaldo válido");
+    showToast(validated ? "No se pudo guardar el respaldo. Tus datos actuales se conservan." : "El archivo no es un respaldo válido");
+  } finally {
+    importingBackup = false;
   }
+}
+
+function validateBackup(parsed) {
+  const record = value => value !== null && typeof value === "object" && !Array.isArray(value);
+  const idOK = value => typeof value === "string" && value.length > 0 && !["__proto__", "constructor", "prototype"].includes(value);
+  const dateOK = value => /^\d{4}-\d{2}-\d{2}$/.test(value) && value.slice(0, 4) !== "0000" &&
+    Number.isFinite(Date.parse(value + "T12:00:00Z")) && new Date(value + "T12:00:00Z").toISOString().slice(0, 10) === value;
+  const requireValid = valid => { if (!valid) throw new Error("Formato de respaldo no válido"); };
+  requireValid(record(parsed) && parsed.version === 1 && Array.isArray(parsed.exercises) && record(parsed.sessions));
+  const exerciseIds = new Set();
+  for (const ex of parsed.exercises) {
+    requireValid(record(ex) && idOK(ex.id) && !exerciseIds.has(ex.id) && typeof ex.name === "string" && GROUPS.includes(ex.group));
+    exerciseIds.add(ex.id);
+    for (const key of ["equipment", "nameEs", "legacyName", "legacyEquipment", "image", "photo"])
+      requireValid(ex[key] === undefined || typeof ex[key] === "string");
+    for (const key of ["favorite", "archived"])
+      requireValid(ex[key] === undefined || typeof ex[key] === "boolean");
+    requireValid(ex.tile == null || Number.isInteger(ex.tile));
+  }
+  for (const [date, session] of Object.entries(parsed.sessions)) {
+    requireValid(dateOK(date) && record(session) && (session.date === undefined || session.date === date) &&
+      Array.isArray(session.selected) && session.selected.every(idOK) && new Set(session.selected).size === session.selected.length &&
+      record(session.completed) && record(session.sets) && (session.finishedAt === undefined || typeof session.finishedAt === "string"));
+    for (const [id, done] of Object.entries(session.completed)) requireValid(idOK(id) && typeof done === "boolean");
+    for (const [id, sets] of Object.entries(session.sets)) {
+      requireValid(idOK(id) && Array.isArray(sets));
+      const setIds = new Set();
+      for (const set of sets) {
+        requireValid(record(set) && idOK(set.id) && !setIds.has(set.id));
+        setIds.add(set.id);
+        // Preserve unfinished text and legacy numeric measurements without
+        // interpreting them as completed work or dropping orphaned history.
+        for (const field of ["kg", "reps", "minutes", "distanceKm", "speedKmh"])
+          requireValid(set[field] == null || typeof set[field] === "string" || Number.isFinite(set[field]));
+        for (const field of ["done", "autoDone", "manualDone", "prefilled", "dropSet"])
+          requireValid(set[field] === undefined || typeof set[field] === "boolean");
+      }
+    }
+  }
+  const routines = parsed.routines ?? [];
+  requireValid(Array.isArray(routines));
+  const routineIds = new Set();
+  for (const routine of routines) {
+    requireValid(record(routine) && idOK(routine.id) && !routineIds.has(routine.id) && typeof routine.name === "string" &&
+      GROUPS.includes(routine.group) && Array.isArray(routine.exerciseIds) && routine.exerciseIds.every(idOK));
+    routineIds.add(routine.id);
+  }
+  return { version: 1, exercises: parsed.exercises, sessions: parsed.sessions,
+    routines: routines.map(routine => ({ ...routine, exerciseIds: [...new Set(routine.exerciseIds)] })) };
 }
 
 document.addEventListener("click", async event => {
@@ -1201,8 +1265,9 @@ document.addEventListener("click", async event => {
   if (action === "delete-routine") {
     const routine = state.routines.find(item => item.id === id);
     if (routine && confirm(`${demoText("¿Eliminar la rutina «", "Delete routine “")}${demoLabel(routine.name)}${demoText("»? Los ejercicios de tus sesiones se conservarán.", "”? The exercises in your sessions will be kept.")}`)) {
+      const previous = state.routines;
       state.routines = state.routines.filter(item => item.id !== id);
-      try { await persistNow(); } catch { showToast(demoText("No se pudo guardar el cambio", "Could not save the change")); return; }
+      try { await persistNow(); } catch { state.routines = previous; showToast(demoText("No se pudo guardar el cambio", "Could not save the change")); return; }
       closeOverlay(); render(); showToast(demoText("Rutina eliminada", "Routine deleted"));
     }
   }
@@ -1318,13 +1383,14 @@ document.addEventListener("submit", async event => {
     const file = DEMO_MODE ? undefined : $("#exercise-photo").files?.[0];
     if (!DEMO_MODE && !existing && !file) throw new Error("Falta imagen");
     const image = file ? await resizePhoto(file) : existing?.image;
-    const exercise = existing || { id: uid(), tile: null };
+    const exercise = existing ? { ...existing } : { id: uid(), tile: null };
     exercise.name = form.elements.name.value.trim();
     exercise.group = form.elements.group.value;
     exercise.equipment = form.elements.equipment.value.trim() || demoText("Equipo no indicado", "Equipment not specified");
     if (image) exercise.image = image;
-    if (!existing) state.exercises.push(exercise);
-    persist();
+    const previous = state.exercises;
+    state.exercises = existing ? previous.map(item => item.id === id ? exercise : item) : [...previous, exercise];
+    try { await persistNow(); } catch (error) { state.exercises = previous; throw error; }
     closeOverlay();
     render();
     showToast(existing ? demoText("Ejercicio actualizado", "Exercise updated") : demoText("Ejercicio añadido", "Exercise added"));
@@ -1334,7 +1400,24 @@ document.addEventListener("submit", async event => {
     button.disabled = false;
   }
 });
-document.addEventListener("keydown", event => { if (event.key === "Escape") closeOverlay(); });
+document.addEventListener("cancel", event => {
+  if (event.target.id !== "overlay") return;
+  event.preventDefault();
+  closeOverlay();
+}, true);
+document.addEventListener("close", event => {
+  if (event.target.id !== "overlay" || event.target.open) return;
+  // Saves re-render the invoking button. Recover the same control by identity
+  // rather than returning keyboard users to the beginning of the document.
+  const previous = overlayReturnFocus;
+  overlayReturnFocus = undefined;
+  const sameControl = previous?.data && (previous.data.action || previous.data.tab)
+    ? [...document.querySelectorAll("[data-action], [data-tab]")].find(element =>
+      Object.entries(previous.data).every(([key, value]) => element.dataset[key] === value)) : null;
+  const target = previous?.element?.isConnected ? previous.element
+    : (previous?.id ? document.getElementById(previous.id) : null) || sameControl || $(".nav-item.active");
+  target?.focus({ preventScroll: true });
+}, true);
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") syncSessionDay();
 });
@@ -1345,7 +1428,7 @@ setInterval(syncSessionDay, 1000);
 // Refresh before an interaction can edit yesterday's session after a suspended timer.
 for (const eventType of ["click", "input", "change", "submit"]) {
   document.addEventListener(eventType, event => {
-    if (resettingDemo || syncSessionDay()) {
+    if (resettingDemo || importingBackup || syncSessionDay()) {
       event.preventDefault();
       event.stopImmediatePropagation();
     }

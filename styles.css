@@ -157,3 +157,9 @@ main:has(.catalog-return){padding-bottom:100px}
 .demo-mode .overlay{top:var(--demo-banner-height,150px)}
 .demo-mode .sheet{max-height:calc(100dvh - var(--demo-banner-height,150px) - 44px)}
 @media(max-width:370px){.demo-mode .demo-banner{gap:9px;padding-left:12px;padding-right:12px;font-size:12px}.demo-banner button{max-width:99px;padding:8px}}
+
+/* Native modal containment keeps keyboard/assistive focus inside the sheet. */
+dialog.overlay{margin:0;padding:0;border:0;width:100%;height:100%;max-width:none;max-height:none;background:transparent;color:inherit}
+dialog.overlay::backdrop{background:transparent}
+.demo-mode dialog.overlay{height:calc(100% - var(--demo-banner-height,150px))}
+.toast{max-width:calc(100vw - 24px);white-space:normal;overflow-wrap:anywhere;text-align:center}
