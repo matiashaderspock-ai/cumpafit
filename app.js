@@ -753,9 +753,9 @@ function undoRemovedExercise(date, id, index) {
 function removeExerciseWithUndo(id) {
   const session = ensureSession();
   const index = session.selected.indexOf(id);
-  if (index < 0) return;
   const date = activeDate;
   const historical = date !== todayISO();
+  if (index < 0 && (!historical || (!Object.hasOwn(session.sets, id) && !Object.hasOwn(session.completed, id)))) return;
   // Historical corrections must remove recorded sets too, not just hide the card.
   const savedSets = historical && Object.hasOwn(session.sets, id) ? structuredClone(session.sets[id]) : undefined;
   const hadCompleted = historical && Object.hasOwn(session.completed, id);
@@ -774,7 +774,8 @@ function removeExerciseWithUndo(id) {
       if (savedSets !== undefined && !Object.hasOwn(target.sets, id)) target.sets[id] = savedSets;
       if (hadCompleted && !Object.hasOwn(target.completed, id)) target.completed[id] = wasCompleted;
     }
-    undoRemovedExercise(date, id, index);
+    if (index >= 0) undoRemovedExercise(date, id, index);
+    else { persist(); render(); }
   });
 }
 function render() {
@@ -793,9 +794,16 @@ function renderSessionSummary(session, exercises) {
   const completed = exercises.filter(ex => isExerciseComplete(session, ex.id)).length;
   return `<section class="summary-card" aria-label="${demoText("Progreso de la sesión", "Session progress")}"><div class="summary-number" aria-label="${completed} ${demoText("de", "of")} ${exercises.length} ${demoText("ejercicios completados", "exercises completed")}">${completed}<span> / ${exercises.length}</span></div><div class="progress-track" role="progressbar" aria-label="${demoText("Ejercicios completados", "Completed exercises")}" aria-valuemin="0" aria-valuemax="${exercises.length || 1}" aria-valuenow="${completed}"><div class="progress-fill" style="width:${exercises.length ? completed / exercises.length * 100 : 0}%"></div></div></section>`;
 }
+function sessionExercisesForEditor(session) {
+  // A previously removed exercise can retain recorded sets in older backups.
+  // Show it when editing history so those records can still be corrected.
+  const selected = session.selected || [];
+  const ids = activeDate === todayISO() ? selected : [...new Set([...selected, ...Object.keys(session.sets || {}), ...Object.keys(session.completed || {})])];
+  return ids.map(getExercise).filter(Boolean);
+}
 function renderToday() {
   const session = ensureSession();
-  const exercises = session.selected.map(getExercise).filter(Boolean);
+  const exercises = sessionExercisesForEditor(session);
   const historical = activeDate !== todayISO();
   const historyEditorBanner = historical ? `<section class="history-edit-banner" aria-label="${demoText("Edición de una sesión anterior", "Editing a past session")}"><div><strong>${demoText("Editando sesión anterior", "Editing a past session")}</strong><p>${escapeHtml(formatDate(activeDate))} · ${demoText("Los cambios se guardan automáticamente en esta fecha.", "Changes save automatically to this date.")}</p></div><div class="history-edit-actions"><button type="button" class="secondary-button" data-action="go-history">${demoText("Volver al historial", "Back to history")}</button><button type="button" class="secondary-button" data-action="go-today">${demoText("Ir a hoy", "Go to today")}</button></div></section>` : "";
   return `${historyEditorBanner}${renderSessionSummary(session, exercises)}
@@ -814,7 +822,7 @@ function refreshSetProgress(input) {
   // Refresh progress without replacing inputs or interrupting the phone keyboard.
   const template = document.createElement("template");
   const session = ensureSession();
-  template.innerHTML = renderSessionSummary(session, session.selected.map(getExercise).filter(Boolean));
+  template.innerHTML = renderSessionSummary(session, sessionExercisesForEditor(session));
   $("#view .summary-card").replaceWith(template.content.querySelector(".summary-card"));
   const card = input.closest(".session-card");
   const id = input.dataset.ex;
@@ -963,7 +971,7 @@ function openHistoryEditor(date) {
   const session = state.sessions[date];
   if (!session) return false;
   activeDate = date;
-  expandedId = session.selected.find(id => getExercise(id)) || "";
+  expandedId = sessionExercisesForEditor(session)[0]?.id || "";
   tab = "today";
   closeOverlay();
   render();
