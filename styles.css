@@ -163,3 +163,14 @@ dialog.overlay{margin:0;padding:0;border:0;width:100%;height:100%;max-width:none
 dialog.overlay::backdrop{background:transparent}
 .demo-mode dialog.overlay{height:calc(100% - var(--demo-banner-height,150px))}
 .toast{max-width:calc(100vw - 24px);white-space:normal;overflow-wrap:anywhere;text-align:center}
+
+/* Past workouts use the existing session editor with clear date context. */
+.history-edit-banner{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:15px 16px;margin:0 0 18px;border:1px solid #e8d8bc;border-radius:15px;background:#fff8ee}
+.history-edit-banner strong{color:#273644;font-size:14px}
+.history-edit-banner p{color:#6c7881;font-size:12px;line-height:1.5;margin:5px 0 0}
+.history-edit-actions{display:flex;flex-wrap:wrap;gap:8px;flex:none}
+.history-edit-actions .secondary-button{white-space:nowrap}
+.history-summary-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.history-summary-actions .history-edit-action{grid-column:1/-1}
+@media(max-width:640px){.history-edit-banner{align-items:stretch;flex-direction:column;gap:12px}.history-edit-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.history-edit-actions .secondary-button{white-space:normal;min-height:42px;padding:10px 8px}}
+@media(max-width:360px){.history-summary-actions{grid-template-columns:1fr}.history-summary-actions .history-edit-action{grid-column:auto}}
