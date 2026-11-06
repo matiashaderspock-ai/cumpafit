@@ -99,3 +99,17 @@ test('a nonexistent date never opens the editor or changes the active session', 
   assert.equal(a.run('activeDate'), '2026-10-10');
   assert.equal(a.run('closes'), 0);
 });
+
+test('legacy sessions with orphaned recorded sets can be corrected and removed', async () => {
+  const a = app();
+  a.run("const old = ensureSession('2026-10-05'); old.sets[id] = [{ id: 'orphan-set', kg: '22', reps: '8', done: true }];");
+  await a.click('edit-session', '2026-10-05');
+  assert.match(a.run('renderToday()'), /data-set-id="orphan-set"/);
+  await a.fire('input', { dataset: { setField: 'kg', ex: a.run('id'), setId: 'orphan-set' }, value: '25' });
+  assert.equal(a.run("saved.sessions['2026-10-05'].sets[id][0].kg"), '25');
+  await a.click('remove-exercise', undefined, a.run('id'));
+  assert.equal(a.run("Object.hasOwn(saved.sessions['2026-10-05'].sets, id)"), false);
+  a.run('latestUndo()');
+  assert.equal(a.run("saved.sessions['2026-10-05'].sets[id][0].kg"), '25');
+  assert.equal(a.run("saved.sessions['2026-10-05'].selected.includes(id)"), false);
+});
