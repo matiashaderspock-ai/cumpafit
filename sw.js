@@ -1,8 +1,8 @@
-const CACHE = "cumpafit-v46";
+const CACHE = "cumpafit-v47";
 const FILES = [
   "./index.html",
-  "./styles.css?v=46",
-  "./app.js?v=46",
+  "./styles.css?v=47",
+  "./app.js?v=47",
   "./demo-mode.js?v=46",
   "./manifest.webmanifest?v=46",
   "./assets/icon.svg?v=46",
