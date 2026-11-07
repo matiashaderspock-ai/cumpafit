@@ -9,6 +9,37 @@ fs.mkdirSync(output, { recursive: true });
 (async () => {
   const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH, args: ['--no-sandbox'] });
   try {
+    // Permanent catalog deletion never destroys existing workout records.
+    const deleteContext = await browser.newContext({ ...devices['iPhone 13'], locale: 'es-BO' });
+    const deletion = await deleteContext.newPage();
+    await deletion.goto(new URL('?demo=1', base).href);
+    await deletion.locator('[data-action="toggle-weight-unit"]').waitFor();
+    const deleteId = await deletion.evaluate(() => ensureSession().selected[0]);
+    const originalSessions = await deletion.evaluate(() => JSON.stringify(state.sessions));
+    await deletion.evaluate(id => openExerciseForm(id), deleteId);
+    await deletion.getByRole('button', { name: 'Delete forever', exact: true }).scrollIntoViewIfNeeded();
+    await deletion.screenshot({ path: `${output}/delete-exercise-confirmation-entry.png`, fullPage: true });
+    deletion.once('dialog', dialog => dialog.dismiss());
+    await deletion.getByRole('button', { name: 'Delete forever', exact: true }).click();
+    assert.equal(await deletion.evaluate(id => state.exercises.some(ex => ex.id === id), deleteId), true);
+    deletion.once('dialog', async dialog => {
+      assert.match(dialog.message(), /Existing sessions and records/);
+      await dialog.accept();
+    });
+    await deletion.getByRole('button', { name: 'Delete forever', exact: true }).click();
+    await deletion.waitForFunction(id => !state.exercises.some(ex => ex.id === id), deleteId);
+    await deletion.evaluate(() => persistNow());
+    assert.equal(await deletion.evaluate(() => JSON.stringify(state.sessions)), originalSessions);
+    await deletion.reload();
+    await deletion.locator('[data-action="toggle-weight-unit"]').waitFor();
+    assert.equal(await deletion.evaluate(id => state.exercises.some(ex => ex.id === id), deleteId), false);
+    assert.equal(await deletion.evaluate(() => JSON.stringify(state.sessions)), originalSessions);
+    assert.equal(await deletion.evaluate(id => state.routines.some(r => r.exerciseIds.includes(id)), deleteId), false);
+    assert.equal(await deletion.evaluate(id => Boolean(getExercise(id)?.name), deleteId), true);
+    await deletion.evaluate(() => { state = validateBackup(JSON.parse(JSON.stringify(state))); mergeStarterExercises(state); });
+    assert.equal(await deletion.evaluate(id => state.exercises.some(ex => ex.id === id), deleteId), false);
+    await deleteContext.close();
+
     // Unit changes are preferences, never migrations of recorded kilogram loads.
     const unitContext = await browser.newContext({ ...devices['iPhone 13'], locale: 'es-BO' });
     const units = await unitContext.newPage();

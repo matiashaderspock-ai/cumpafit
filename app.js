@@ -324,7 +324,8 @@ function createDemoState() {
 }
 function mergeStarterExercises(snapshot) {
   const existingIds = new Set(snapshot.exercises.map(ex => ex.id));
-  const missing = STARTER_EXERCISES.filter(ex => !existingIds.has(ex.id));
+  const deletedIds = new Set(snapshot.deletedExerciseIds || []);
+  const missing = STARTER_EXERCISES.filter(ex => !existingIds.has(ex.id) && !deletedIds.has(ex.id));
   snapshot.exercises.push(...structuredClone(missing));
   return missing.length;
 }
@@ -383,6 +384,7 @@ let saveTimer;
 let saveChain = Promise.resolve();
 let resettingDemo = false;
 let importingBackup = false;
+let exerciseMutationPending = false;
 let toastTimer;
 let undoAction;
 const sessionHistoryOpen = new Set();
@@ -478,7 +480,7 @@ function ensureSession(date = activeDate) {
   return state.sessions[date];
 }
 function syncSessionDay() {
-  if (!state || importingBackup) return false;
+  if (!state || importingBackup || exerciseMutationPending) return false;
   const today = todayISO();
   if (today === observedToday) return false;
   const wasViewingToday = activeDate === observedToday;
@@ -492,7 +494,40 @@ function syncSessionDay() {
   render();
   return wasViewingToday;
 }
-function getExercise(id) { return state.exercises.find(ex => ex.id === id); }
+// Deleted definitions are absent from the catalog; only minimal record labels remain.
+function getExercise(id) { return state.exercises.find(ex => ex.id === id) || state.exerciseHistory?.find(ex => ex.id === id); }
+async function deleteExerciseForever(id, button) {
+  const ex = state.exercises.find(ex => ex.id === id);
+  if (!ex || button.disabled || exerciseMutationPending) return false;
+  if (!confirm(demoText(
+    `¿Eliminar para siempre «${ex.name}» del inventario y de tus rutinas? Su foto y configuración se eliminarán y no podrás restaurarlo desde Archivados. Las sesiones existentes y sus registros conservarán el nombre, grupo y unidad del ejercicio. Solo un respaldo anterior puede recuperar el ejercicio.`,
+    `Permanently delete “${ex.name}” from the catalog and your routines? Its photo and settings will be deleted and it cannot be restored from Archived. Existing sessions and records will retain the exercise name, group and unit. Only an earlier backup can recover the exercise.`
+  ))) return false;
+  button.disabled = true;
+  exerciseMutationPending = true;
+  const previous = { exercises: state.exercises, routines: state.routines,
+    deletedExerciseIds: state.deletedExerciseIds, exerciseHistory: state.exerciseHistory };
+  const used = Object.values(state.sessions).some(session => session.selected.includes(id) || Object.hasOwn(session.sets, id) || Object.hasOwn(session.completed, id));
+  state.exercises = state.exercises.filter(item => item.id !== id);
+  state.routines = state.routines.map(routine => ({ ...routine, exerciseIds: routine.exerciseIds.filter(item => item !== id) }));
+  state.deletedExerciseIds = [...new Set([...(state.deletedExerciseIds || []), id])];
+  state.exerciseHistory = (state.exerciseHistory || []).filter(item => item.id !== id);
+  if (used) state.exerciseHistory.push({ id, name: ex.name, group: ex.group, equipment: ex.equipment || "", ...(ex.nameEs !== undefined ? { nameEs: ex.nameEs } : {}), ...(ex.legacyName !== undefined ? { legacyName: ex.legacyName } : {}), weightUnit: exerciseWeightUnit(ex) });
+  try { await persistNow(); } catch {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete state[key]; else state[key] = value;
+    }
+    exerciseMutationPending = false;
+    button.disabled = false;
+    showToast(demoText("No se pudo eliminar el ejercicio. Tus datos se conservan.", "Could not delete the exercise. Your data is preserved."));
+    return false;
+  }
+  exerciseMutationPending = false;
+  catalogDetailsOpen.delete(id);
+  closeOverlay(); render();
+  showToast(demoText("Ejercicio eliminado del inventario. Registros conservados.", "Exercise deleted from the catalog. Records preserved."));
+  return true;
+}
 // Keep legacy distances intact; derive average speed only when no speed was saved.
 function usesSpeed(ex) {
   return ex?.group === "Cardio" &&
@@ -888,7 +923,7 @@ function renderCatalogCards() {
   }).join("");
 }
 function availableRoutineExercises(routine) {
-  return [...new Set(routine.exerciseIds)].map(getExercise).filter(ex => ex && !ex.archived);
+  return [...new Set(routine.exerciseIds)].map(id => state.exercises.find(ex => ex.id === id)).filter(ex => ex && !ex.archived);
 }
 function renderRoutinesPage() {
   return `<div class="view-header catalog-header"><div><p class="eyebrow">${demoText("Tu entrenamiento", "Your training")}</p><h1 class="view-title">${demoText("Rutinas", "Routines")}</h1><div class="subtle">${demoText("Tus combinaciones favoritas, organizadas por músculo.", "Your favorite combinations, organized by muscle group.")}</div></div><button type="button" class="primary-button light" data-action="new-routine">${demoText("+ Crear rutina", "+ Create routine")}</button></div>${renderRoutines()}`;
@@ -1105,7 +1140,8 @@ function canUsePanattaIllustration(ex) {
   return matches.length === 1 && matches[0].id === ex.id;
 }
 function openExerciseForm(id) {
-  const ex = id ? getExercise(id) : null;
+  const ex = id ? state.exercises.find(ex => ex.id === id) : null;
+  if (id && !ex) return;
   const options = GROUPS.map(group => `<option value="${group}" ${ex?.group === group ? "selected" : ""}>${demoLabel(group)}</option>`).join("");
   openOverlay(`<h2 id="sheet-title">${ex ? demoText("Editar ejercicio", "Edit exercise") : demoText("Nuevo ejercicio", "New exercise")}</h2>
     <p>${DEMO_MODE ? demoText("Prueba los cambios en este navegador con datos de ejemplo.", "Try changes in this browser with sample data.") : ex ? "Actualiza el nombre, equipo o imagen del movimiento." : "La imagen es opcional. Puedes añadirla ahora o más adelante desde Editar."}</p>
@@ -1120,7 +1156,7 @@ function openExerciseForm(id) {
       <input id="exercise-photo" class="file-control" type="file" accept="image/*" />`}
       ${canUsePanattaIllustration(ex) ? `<label class="routine-option"><input type="checkbox" name="panattaIllustration" /><img class="routine-thumbnail" src="${STARTER_ILLUSTRATIONS["panatta-super-declined-chest-press"]}" alt="Ilustración de Super Declined Chest Press en máquina Panatta" /><span class="routine-option-copy"><strong>Usar ilustración Panatta</strong><small>Reemplaza la imagen al guardar. Conserva tu historial y tus rutinas. Si eliges una foto, se usará esa foto.</small></span></label>` : ""}
       <div class="sheet-buttons"><button type="button" class="secondary-button" data-close-overlay>${demoText("Cancelar", "Cancel")}</button><button type="submit" class="primary-button">${demoText("Guardar ejercicio", "Save exercise")}</button></div>
-      ${ex ? `<button type="button" class="remove-from-day" style="margin-top:16px" data-action="${ex.archived ? "restore-exercise" : "archive-exercise"}" data-id="${escapeHtml(ex.id)}">${ex.archived ? demoText("Restaurar ejercicio", "Restore exercise") : demoText("Archivar ejercicio", "Archive exercise")}</button>` : ""}
+      ${ex ? `<button type="button" class="remove-from-day" style="margin-top:16px" data-action="${ex.archived ? "restore-exercise" : "archive-exercise"}" data-id="${escapeHtml(ex.id)}">${ex.archived ? demoText("Restaurar ejercicio", "Restore exercise") : demoText("Archivar ejercicio", "Archive exercise")}</button><button type="button" class="delete-session-button" style="margin-top:16px" data-action="delete-exercise-forever" data-id="${escapeHtml(ex.id)}">${demoText("Eliminar para siempre", "Delete forever")}</button>` : ""}
     </form>`);
 }
 function openBackup() {
@@ -1128,6 +1164,7 @@ function openBackup() {
   openOverlay(`<h2 id="sheet-title">Respaldo de datos</h2><p>Tus rutinas, sesiones e imágenes añadidas se guardan en este navegador. Exporta una copia para poder recuperarlas.</p><button type="button" class="backup-action" data-action="export"><span>Exportar respaldo<small>Descarga ejercicios, rutinas y sesiones en JSON</small></span><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v3h16v-3"/></svg></button><button type="button" class="backup-action" data-action="import"><span>Importar respaldo<small>Reemplaza los datos de este dispositivo</small></span><svg viewBox="0 0 24 24"><path d="M12 20V8m0 0 4 4m-4-4-4 4M4 4h16v3"/></svg></button><div class="sheet-buttons"><button type="button" class="secondary-button" data-close-overlay>Cerrar</button></div>`);
 }
 function addToSession(id) {
+  if (!state.exercises.some(ex => ex.id === id)) return;
   const session = ensureSession();
   if (session.selected.includes(id)) return;
   session.selected.push(id);
@@ -1256,7 +1293,20 @@ function validateBackup(parsed) {
       GROUPS.includes(routine.group) && Array.isArray(routine.exerciseIds) && routine.exerciseIds.every(idOK));
     routineIds.add(routine.id);
   }
+  const deletedIds = parsed.deletedExerciseIds ?? [];
+  requireValid(Array.isArray(deletedIds) && deletedIds.every(idOK) && new Set(deletedIds).size === deletedIds.length && deletedIds.every(id => !exerciseIds.has(id)));
+  const exerciseHistory = parsed.exerciseHistory ?? [];
+  requireValid(Array.isArray(exerciseHistory));
+  const historyIds = new Set();
+  for (const ex of exerciseHistory) {
+    requireValid(record(ex) && idOK(ex.id) && deletedIds.includes(ex.id) && !historyIds.has(ex.id) && typeof ex.name === "string" && GROUPS.includes(ex.group));
+    for (const key of ["equipment", "nameEs", "legacyName"]) requireValid(ex[key] === undefined || typeof ex[key] === "string");
+    requireValid(ex.weightUnit === undefined || ex.weightUnit === "kg" || ex.weightUnit === "lb");
+    historyIds.add(ex.id);
+  }
   return { version: 1, exercises: parsed.exercises, sessions: parsed.sessions,
+    ...(parsed.deletedExerciseIds !== undefined ? { deletedExerciseIds: deletedIds } : {}),
+    ...(parsed.exerciseHistory !== undefined ? { exerciseHistory } : {}),
     routines: routines.map(routine => ({ ...routine, exerciseIds: [...new Set(routine.exerciseIds)] })) };
 }
 
@@ -1385,8 +1435,9 @@ document.addEventListener("click", async event => {
     if (session.selected.includes(id)) { removeExerciseWithUndo(id); return; }
     addToSession(id); render(); showToast(demoText("Añadido a la sesión", "Added to session"));
   }
+  if (action === "delete-exercise-forever") { await deleteExerciseForever(id, button); return; }
   if (action === "archive-exercise" || action === "restore-exercise") {
-    const ex = getExercise(id);
+    const ex = state.exercises.find(ex => ex.id === id);
     if (!ex) return;
     ex.archived = action === "archive-exercise";
     persist(); closeOverlay(); render();
@@ -1453,6 +1504,8 @@ document.addEventListener("submit", async event => {
   if (event.target.id === "routine-form") { event.preventDefault(); saveRoutine(); return; }
   if (event.target.id !== "exercise-form") return;
   event.preventDefault();
+  if (exerciseMutationPending) return;
+  exerciseMutationPending = true;
   const form = event.target;
   const button = form.querySelector('[type="submit"]');
   button.disabled = true;
@@ -1478,12 +1531,14 @@ document.addEventListener("submit", async event => {
     console.error(error);
     showToast(demoText("No se pudo guardar el ejercicio", "Could not save exercise"));
     button.disabled = false;
+  } finally {
+    exerciseMutationPending = false;
   }
 });
 document.addEventListener("cancel", event => {
   if (event.target.id !== "overlay") return;
   event.preventDefault();
-  closeOverlay();
+  if (!exerciseMutationPending) closeOverlay();
 }, true);
 document.addEventListener("close", event => {
   if (event.target.id !== "overlay" || event.target.open) return;
@@ -1508,7 +1563,7 @@ setInterval(syncSessionDay, 1000);
 // Refresh before an interaction can edit yesterday's session after a suspended timer.
 for (const eventType of ["click", "input", "change", "submit"]) {
   document.addEventListener(eventType, event => {
-    if (resettingDemo || importingBackup || syncSessionDay()) {
+    if (resettingDemo || importingBackup || exerciseMutationPending || syncSessionDay()) {
       event.preventDefault();
       event.stopImmediatePropagation();
     }
