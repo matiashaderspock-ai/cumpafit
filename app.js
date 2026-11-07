@@ -867,7 +867,7 @@ function canonicalWeight(ex, value) {
 }
 function weightHeading(ex) {
   const unit = exerciseWeightUnit(ex);
-  return `<span class="weight-heading">${demoText("Peso", "Weight")}<button type="button" class="weight-unit-toggle" data-action="toggle-weight-unit" data-id="${escapeHtml(ex.id)}" aria-label="${demoText("Unidad de peso", "Weight unit")}: ${unit}. ${demoText("Cambiar a", "Switch to")} ${unit === "kg" ? "lb" : "kg"}"><span${unit === "kg" ? ' class="selected-unit"' : ""}>kg</span><span aria-hidden="true">⇄</span><span${unit === "lb" ? ' class="selected-unit"' : ""}>lb</span></button></span>`;
+  return `<span class="weight-heading">${demoText("Peso", "Weight")}<button type="button" class="weight-unit-toggle" data-action="toggle-weight-unit" data-id="${escapeHtml(ex.id)}" aria-label="${demoText("Unidad de peso", "Weight unit")}: ${unit}. ${demoText("Cambiar a", "Switch to")} ${unit === "kg" ? "lb" : "kg"}"><span>${unit}</span><span class="weight-unit-cue" aria-hidden="true">↔</span></button></span>`;
 }
 function renderSetFields(ex, set, index) {
   const fields = ex.group === "Cardio"

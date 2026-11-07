@@ -50,3 +50,15 @@ test('last use, history summaries, graphs and PRs display the selected unit but 
  assert.equal(a.run('historicalMaximum(ex.id).kg'),45.359237);
  a.run('ex.weightUnit="kg"');assert.match(a.run('maximumSummaryMarkup(ex.id)'),/45,36 kg/);
 });
+
+test('unit heading shows only the current unit with an explicit accessible switch label', async()=>{
+ const a=app();
+ for (const [current,next] of [['kg','lb'],['lb','kg']]) {
+  const heading=a.run('weightHeading(ex)');
+  assert.match(heading,new RegExp('aria-label="Unidad de peso: '+current+'[.] Cambiar a '+next+'"'));
+  assert.match(heading,new RegExp('<span>'+current+'</span>'));
+  assert.doesNotMatch(heading,new RegExp('<span[^>]*>'+next+'</span>'));
+  assert.match(heading,/class="weight-unit-cue" aria-hidden="true"/);
+  await a.click();
+ }
+});

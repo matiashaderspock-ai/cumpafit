@@ -179,6 +179,7 @@ dialog.overlay::backdrop{background:transparent}
 .session-card .set-header,.session-card .set-row{grid-template-columns:34px minmax(0,68px) minmax(0,58px) 44px 44px;column-gap:4px}
 .session-card .set-header{align-items:end}
 .weight-heading{display:flex;flex-direction:column;align-items:center;gap:0}
-.weight-unit-toggle{display:flex;align-items:center;justify-content:center;gap:4px;min-height:44px;width:100%;max-width:68px;min-width:44px;border:0;border-radius:8px;background:#f1f5f2;color:#78857d;font:inherit;font-size:11px;letter-spacing:0;text-transform:none;cursor:pointer}
-.weight-unit-toggle .selected-unit{font-weight:850;color:#253b30}
+.weight-unit-toggle{display:flex;align-items:center;justify-content:center;gap:4px;min-height:44px;width:44px;min-width:44px;border:0;border-radius:8px;background:transparent;color:#95603c;font:inherit;font-size:11px;letter-spacing:0;text-transform:none;cursor:pointer}
+.weight-unit-toggle .weight-unit-cue{font-size:10px;font-weight:500}
+.weight-unit-toggle:hover,.weight-unit-toggle:active{background:#f8f4ef}
 .weight-unit-toggle:focus-visible{outline:2px solid #ad6336;outline-offset:2px}
