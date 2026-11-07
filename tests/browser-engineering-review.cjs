@@ -9,6 +9,39 @@ fs.mkdirSync(output, { recursive: true });
 (async () => {
   const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH, args: ['--no-sandbox'] });
   try {
+    // Unit changes are preferences, never migrations of recorded kilogram loads.
+    const unitContext = await browser.newContext({ ...devices['iPhone 13'], locale: 'es-BO' });
+    const units = await unitContext.newPage();
+    await units.goto(new URL('?demo=1', base).href);
+    await units.locator('[data-action="toggle-weight-unit"]').waitFor();
+    const beforeUnits = await units.evaluate(() => JSON.stringify(state.sessions));
+    const unitId = await units.locator('[data-action="toggle-weight-unit"]').getAttribute('data-id');
+    await units.locator('[data-action="toggle-weight-unit"]').click();
+    assert.equal(await units.evaluate(id => getExercise(id).weightUnit, unitId), 'lb');
+    assert.equal(await units.evaluate(() => JSON.stringify(state.sessions)), beforeUnits);
+    const weightInput = units.locator('[data-set-field="kg"]').first();
+    await weightInput.fill('100');
+    assert.equal(await units.evaluate(id => ensureSession().sets[id][0].kg, unitId), '45.359237');
+    await units.evaluate(() => persistNow());
+    await units.reload();
+    await units.locator('[data-action="toggle-weight-unit"]').waitFor();
+    assert.equal(await units.locator('[data-set-field="kg"]').first().inputValue(), '100');
+    assert.match(await units.locator('[data-set-field="kg"]').first().getAttribute('aria-label'), /lb/);
+    await units.locator('[data-action="toggle-weight-unit"]').click();
+    assert.equal(await units.locator('[data-set-field="kg"]').first().inputValue(), '45.359237');
+    for (const width of [320, 390, 768, 1280]) {
+      await units.setViewportSize({ width, height: 844 });
+      assert.ok(await units.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `Unit controls fit ${width}px`);
+      const headingBoxes = await units.locator('.set-header').first().evaluate(element => {
+        const series = element.children[0].getBoundingClientRect();
+        const weight = element.children[1].getBoundingClientRect();
+        return { gap: weight.left - series.right, seriesWidth: series.width };
+      });
+      assert.ok(headingBoxes.gap >= 4 && headingBoxes.seriesWidth >= 34, 'Series and weight headings have distinct columns');
+    }
+    await units.setViewportSize({ width: 390, height: 844 });
+    await units.screenshot({ path: `${output}/weight-unit-mobile.png` });
+    await unitContext.close();
     const context = await browser.newContext({ ...devices['iPhone 13'], locale: 'es-BO', reducedMotion: 'reduce' });
     const page = await context.newPage(), errors = [];
     page.on('pageerror', error => errors.push(error.message));
@@ -166,3 +199,4 @@ fs.mkdirSync(output, { recursive: true });
     console.log('PASS: responsive navigation, native modal containment and focus recovery, routine persistence, auto-completion, drop sets, history, safe imports, rollback, reload and offline shell.');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
+

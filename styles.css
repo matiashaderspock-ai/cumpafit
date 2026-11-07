@@ -174,3 +174,11 @@ dialog.overlay::backdrop{background:transparent}
 .history-summary-actions .history-edit-action{grid-column:1/-1}
 @media(max-width:640px){.history-edit-banner{align-items:stretch;flex-direction:column;gap:12px}.history-edit-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.history-edit-actions .secondary-button{white-space:normal;min-height:42px;padding:10px 8px}}
 @media(max-width:360px){.history-summary-actions{grid-template-columns:1fr}.history-summary-actions .history-edit-action{grid-column:auto}}
+
+/* Keep the series and weight headings separated while preserving 44px controls. */
+.session-card .set-header,.session-card .set-row{grid-template-columns:34px minmax(0,68px) minmax(0,58px) 44px 44px;column-gap:4px}
+.session-card .set-header{align-items:end}
+.weight-heading{display:flex;flex-direction:column;align-items:center;gap:0}
+.weight-unit-toggle{display:flex;align-items:center;justify-content:center;gap:4px;min-height:44px;width:100%;max-width:68px;min-width:44px;border:0;border-radius:8px;background:#f1f5f2;color:#78857d;font:inherit;font-size:11px;letter-spacing:0;text-transform:none;cursor:pointer}
+.weight-unit-toggle .selected-unit{font-weight:850;color:#253b30}
+.weight-unit-toggle:focus-visible{outline:2px solid #ad6336;outline-offset:2px}
