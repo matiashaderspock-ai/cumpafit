@@ -103,7 +103,7 @@ fs.mkdirSync(output, { recursive: true });
     const spanish = await spanishContext.newPage();
     await spanish.goto(base);
     await spanish.waitForFunction(() => Boolean(state));
-    await spanish.evaluate(() => { state = createDemoState(); render(); });
+    await spanish.evaluate(() => { state = createDemoState(); expandedId = ensureSession().selected[0]; render(); });
     await spanish.locator('[data-action="toggle-weight-unit"]').waitFor();
     for (const width of [320, 390]) {
       await spanish.setViewportSize({ width, height: 844 });
