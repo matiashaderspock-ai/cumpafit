@@ -132,6 +132,8 @@ fs.mkdirSync(output, { recursive: true });
     await page.screenshot({ path: `${output}/routine-mobile.png` });
     await page.getByRole('button', { name: 'Save routine', exact: true }).click();
     await page.locator('#overlay').waitFor({ state: 'hidden' });
+    // The native dialog close event restores focus asynchronously after hiding.
+    await page.waitForFunction(() => document.querySelector('[data-action="new-routine"]') === document.activeElement);
     assert.ok(await page.locator('[data-action="new-routine"]').evaluate(e => e === document.activeElement), 'Save restores the re-rendered trigger');
     await page.reload();
     await page.locator('[data-tab="routines"]').click();
