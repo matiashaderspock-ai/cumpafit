@@ -86,6 +86,7 @@ const STARTER_EXERCISES = [
   {"id":"standing-ez-bar-machine-curl","name":"Standing EZ-Bar Machine Curl","group":"Bíceps","equipment":"Panatta · Máquina de pesas con selector","nameEs":"Curl de bíceps de pie en máquina con barra EZ"},
 ];
 const STARTER_ILLUSTRATIONS = {
+  "panatta-super-declined-chest-press": "./assets/panatta-super-declined-chest-press.jpg",
   "standing-ez-bar-machine-curl": "./assets/standing-ez-bar-machine-curl.png",
   "curl-inclinado": "./assets/curl-inclinado-hd.jpg",
   "triceps-pushdown": "./assets/triceps-pushdown-hd.jpg",
@@ -571,7 +572,7 @@ function lastPerformance(id, beforeDate = activeDate) {
     const done = sets.filter(set => set.done && !set.dropSet && Number(set.reps) > 0);
     if (done.length) {
       const best = done.at(-1);
-      return `${date.slice(8, 10)}/${date.slice(5, 7)} · ${best.reps} reps${best.kg !== "" ? ` · ${best.kg} kg` : demoText(" · peso corporal", " · bodyweight")}`;
+      return `${date.slice(8, 10)}/${date.slice(5, 7)} · ${best.reps} reps${best.kg !== "" ? ` · ${formatExerciseWeight(getExercise(id), best.kg)}` : demoText(" · peso corporal", " · bodyweight")}`;
     }
   }
   return demoText("Sin registros anteriores", "No previous records");
@@ -638,7 +639,7 @@ function lastUseContent(id, beforeDate, compact = false) {
   const use = recordedUses(id, beforeDate).at(-1);
   if (!use) return { label: demoText("Último uso", "Last workout"), body: `<span class="performance-empty">${compact ? demoText("Sin registros anteriores.", "No previous records.") : demoText("No hay series completadas registradas para este ejercicio.", "No completed sets recorded for this exercise.")}</span>` };
   const cardio = getExercise(id)?.group === "Cardio";
-  const summary = use.sets.map((set, i) => `<span class="last-use-set"><span class="previous-set-number">${i + 1}.${set.dropSet ? ' <small class="drop-set-label" title="Drop Set">DS</small>' : ""}</span> ${cardio ? `${formatMeasure(set.minutes)} min · ${formatMeasure(cardioValue(getExercise(id), set))} ${cardioMetric(getExercise(id)).unit}` : `${formatMeasure(set.kg)} kg × ${escapeHtml(set.reps)} reps`}</span>`).join("");
+  const summary = use.sets.map((set, i) => `<span class="last-use-set"><span class="previous-set-number">${i + 1}.${set.dropSet ? ' <small class="drop-set-label" title="Drop Set">DS</small>' : ""}</span> ${cardio ? `${formatMeasure(set.minutes)} min · ${formatMeasure(cardioValue(getExercise(id), set))} ${cardioMetric(getExercise(id)).unit}` : `${formatExerciseWeight(getExercise(id), set.kg)} × ${escapeHtml(set.reps)} reps`}</span>`).join("");
   return { label: `${demoText("Último uso", "Last workout")} · ${shortUseDate(use.date)}/${use.date.slice(0, 4)}`, body: `<span class="last-use-sets">${summary}</span>${cardio ? maximumSummaryMarkup(id) : ""}` };
 }
 function lastUseMarkup(id, beforeDate) {
@@ -654,8 +655,8 @@ function weightHistoryContent(id, beforeDate, compact = false) {
   const width = compact ? 180 : 300;
   const left = 24, right = width - 24;
   const coords = uses.map((use, i) => ({ x: uses.length === 1 ? width / 2 : left + i * (right - left) / (uses.length - 1), y: max === min ? 44 : 66 - (use.maxKg - min) * 36 / (max - min), use }));
-  const description = uses.map(use => `${use.date}: ${formatMeasure(use.maxKg)} kg`).join("; ");
-  const body = `<svg class="weight-sparkline" viewBox="0 0 ${width} 104" role="img" aria-label="${escapeHtml(description)}"><path class="graph-grid" d="M16 70H${width - 16}M16 34H${width - 16}"/>${coords.length > 1 ? `<polyline class="graph-line" points="${coords.map(p => `${p.x},${p.y}`).join(" ")}"/>` : ""}${coords.map(p => `<g><title>${escapeHtml(p.use.date)}: ${formatMeasure(p.use.maxKg)} kg</title><circle class="graph-dot" cx="${p.x}" cy="${p.y}" r="3.5"/><text x="${p.x}" y="${p.y - 10}" text-anchor="middle">${formatMeasure(p.use.maxKg)} kg</text><text class="graph-date" x="${p.x}" y="94" text-anchor="middle">${shortUseDate(p.use.date)}</text></g>`).join("")}</svg>${maximumSummaryMarkup(id)}`;
+  const description = uses.map(use => `${use.date}: ${formatExerciseWeight(getExercise(id), use.maxKg)}`).join("; ");
+  const body = `<svg class="weight-sparkline" viewBox="0 0 ${width} 104" role="img" aria-label="${escapeHtml(description)}"><path class="graph-grid" d="M16 70H${width - 16}M16 34H${width - 16}"/>${coords.length > 1 ? `<polyline class="graph-line" points="${coords.map(p => `${p.x},${p.y}`).join(" ")}"/>` : ""}${coords.map(p => `<g><title>${escapeHtml(p.use.date)}: ${formatExerciseWeight(getExercise(id), p.use.maxKg)}</title><circle class="graph-dot" cx="${p.x}" cy="${p.y}" r="3.5"/><text x="${p.x}" y="${p.y - 10}" text-anchor="middle">${formatExerciseWeight(getExercise(id), p.use.maxKg)}</text><text class="graph-date" x="${p.x}" y="94" text-anchor="middle">${shortUseDate(p.use.date)}</text></g>`).join("")}</svg>${maximumSummaryMarkup(id)}`;
   return { label: `${demoText("Peso máximo · últimos", "Max weight · last")} ${uses.length} ${uses.length === 1 ? demoText("uso", "workout") : demoText("usos", "workouts")}`, body };
 }
 function weightHistoryMarkup(id, beforeDate) {
@@ -719,8 +720,8 @@ function maximumSummaryMarkup(id) {
   const maximum = historicalMaximum(id);
   if (!maximum) return `<span class="graph-note historical-summary">${demoText("Máximo histórico: sin registros.", "Personal best: no records.")}</span>`;
   const date = `${maximum.date.slice(8, 10)}/${maximum.date.slice(5, 7)}/${maximum.date.slice(0, 4)}`;
-  const weight = new Intl.NumberFormat(DISPLAY_LOCALE, { maximumFractionDigits: 2 }).format(maximum.kg);
-  return `<span class="graph-note historical-summary">${demoText("Máximo histórico:", "Personal best:")} ${escapeHtml(weight)} kg · ${maximum.reps} reps · ${date}</span>`;
+  const weight = formatExerciseWeight(getExercise(id), maximum.kg);
+  return `<span class="graph-note historical-summary">${demoText("Máximo histórico:", "Personal best:")} ${escapeHtml(weight)} · ${maximum.reps} reps · ${date}</span>`;
 }
 function showToast(message, undo) {
   const toast = $("#toast");
@@ -812,10 +813,31 @@ function renderToday() {
     <p class="session-date"><time datetime="${escapeHtml(activeDate)}">${escapeHtml(formatDate(activeDate))}</time></p>
     <div class="session-finish"><div><strong>${session.finishedAt ? demoText("✓ Sesión terminada", "✓ Session finished") : demoText("¿Terminaste por hoy?", "Finished for today?")}</strong><p>${session.finishedAt ? demoText("Tus registros se conservan y puedes corregirlos aquí.", "Your records are saved and you can edit them here.") : demoText("Guarda tu entrenamiento aunque queden ejercicios pendientes.", "Save your workout even if some exercises are unfinished.")}</p></div><button type="button" class="${session.finishedAt ? "secondary-button" : "primary-button"}" data-action="${session.finishedAt ? "reopen-session" : "finish-session"}" data-date="${activeDate}">${session.finishedAt ? demoText("Reabrir sesión", "Reopen session") : demoText("Terminar sesión", "Finish session")}</button></div>`;
 }
+// Unit choice belongs to the exercise; all recorded loads remain canonical kg.
+const KG_PER_LB = 0.45359237;
+const exerciseWeightUnit = ex => ex?.weightUnit === "lb" ? "lb" : "kg";
+function displayedWeight(ex, kg) {
+  if (exerciseWeightUnit(ex) === "kg" || String(kg ?? "").trim() === "") return kg;
+  const value = decimalNumber(kg);
+  return Number.isFinite(value) ? String(Math.round(value / KG_PER_LB * 100) / 100) : kg;
+}
+function formatExerciseWeight(ex, kg) {
+  return `${formatMeasure(displayedWeight(ex, kg))} ${exerciseWeightUnit(ex)}`;
+}
+function canonicalWeight(ex, value) {
+  if (exerciseWeightUnit(ex) === "kg" || String(value).trim() === "") return value;
+  if (!/^(?:\d+(?:[.,]\d*)?|[.,]\d+)$/.test(String(value).trim())) return value;
+  const amount = decimalNumber(value);
+  return Number.isFinite(amount) ? String(amount * KG_PER_LB) : value;
+}
+function weightHeading(ex) {
+  const unit = exerciseWeightUnit(ex);
+  return `<span class="weight-heading">${demoText("Peso", "Weight")}<button type="button" class="weight-unit-toggle" data-action="toggle-weight-unit" data-id="${escapeHtml(ex.id)}" aria-label="${demoText("Unidad de peso", "Weight unit")}: ${unit}. ${demoText("Cambiar a", "Switch to")} ${unit === "kg" ? "lb" : "kg"}"><span${unit === "kg" ? ' class="selected-unit"' : ""}>kg</span><span aria-hidden="true">⇄</span><span${unit === "lb" ? ' class="selected-unit"' : ""}>lb</span></button></span>`;
+}
 function renderSetFields(ex, set, index) {
   const fields = ex.group === "Cardio"
     ? [["minutes", demoText("Minutos", "Minutes"), set.minutes], [cardioMetric(ex).field, cardioMetric(ex).label, cardioValue(ex, set)]]
-    : [["kg", demoText("Peso kg", "Weight kg"), set.kg], ["reps", demoText("Repeticiones", "Repetitions"), set.reps]];
+    : [["kg", `${demoText("Peso", "Weight")} ${exerciseWeightUnit(ex)}`, displayedWeight(ex, set.kg)], ["reps", demoText("Repeticiones", "Repetitions"), set.reps]];
   return fields.map(([field, label, value]) => `<input class="set-input" type="${field === "reps" ? "number" : "text"}" ${field === "reps" ? 'min="0"' : ""} inputmode="${field === "reps" ? "numeric" : "decimal"}" placeholder="—" value="${escapeHtml(value)}" data-set-field="${field}" data-ex="${escapeHtml(ex.id)}" data-set-id="${escapeHtml(set.id)}" aria-label="${label} ${demoText("serie", "set")} ${index + 1}${set.dropSet ? " Drop Set" : ""} ${demoText("de", "of")} ${escapeHtml(ex.name)}" />`).join("");
 }
 function refreshSetProgress(input) {
@@ -846,7 +868,7 @@ function renderSessionExercise(ex, session, index) {
   return `<article class="session-card${done ? " done" : ""}">
     <div class="session-main">${imageMarkup(ex)}<h3 class="session-heading" title="${escapeHtml(`${pair} · ${demoLabel(ex.group)} · ${ex.name}`)}"><span class="exercise-kicker">${demoText("EJ.", "EX.")} ${index + 1} · ${escapeHtml(demoLabel(ex.group))} · </span><span class="session-exercise-name" lang="en">${escapeHtml(ex.name)}</span></h3><button type="button" class="complete-button${done ? " done" : ""}" data-action="toggle-complete" data-id="${escapeHtml(ex.id)}" aria-label="${done ? demoText("Marcar pendiente", "Mark incomplete") : demoText("Marcar completado", "Mark complete")}: ${escapeHtml(ex.name)}" aria-pressed="${done}"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></button></div>
     ${sessionPerformanceMarkup(ex.id)}<button type="button" class="expand-button" data-action="expand" data-id="${escapeHtml(ex.id)}" aria-expanded="${isOpen}"><span>${sets.filter(set => set.done).length} ${demoText("de", "of")} ${sets.length} ${demoText("series hechas", "sets completed")}</span><svg viewBox="0 0 24 24"><path d="m5 9 7 7 7-7"/></svg></button>
-    ${isOpen ? `<div class="sets-panel"><div class="set-header"><span>${demoText("Serie", "Set")}</span><span>${ex.group === "Cardio" ? demoText("Minutos", "Minutes") : demoText("Peso kg", "Weight kg")}</span><span>${ex.group === "Cardio" ? cardioMetric(ex).heading : "Reps"}</span><span>${demoText("Hecha", "Done")}</span><span></span></div>${sets.map((set, i) => `<div class="set-row"><span class="set-index">${String(i + 1).padStart(2, "0")}${set.dropSet ? '<small class="drop-set-label" title="Drop Set">DS</small>' : ""}</span>${renderSetFields(ex, set, i)}<input class="set-check" type="checkbox" ${set.done ? "checked" : ""} data-set-done data-ex="${escapeHtml(ex.id)}" data-set-id="${escapeHtml(set.id)}" aria-label="${demoText("Serie", "Set")} ${i + 1}${set.dropSet ? " Drop Set" : ""} ${demoText("hecha", "completed")}" /><button type="button" class="remove-set" data-action="remove-set" data-id="${escapeHtml(ex.id)}" data-set-id="${escapeHtml(set.id)}" aria-label="${demoText("Quitar serie", "Remove set")} ${i + 1}${set.dropSet ? " Drop Set" : ""}"><svg viewBox="0 0 24 24"><path d="M5 7h14m-12 0 1 13h8l1-13M9 7V4h6v3"/></svg></button></div>`).join("")}<div class="panel-actions"><div class="add-set-actions"><button type="button" class="add-set" data-action="add-set" data-id="${escapeHtml(ex.id)}" aria-label="${demoText("Añadir serie a", "Add set to")} ${escapeHtml(ex.name)}" title="${demoText("Añadir serie", "Add set")}"><span aria-hidden="true">+</span></button>${ex.group === "Cardio" ? "" : `<button type="button" class="add-set add-drop-set" data-action="add-drop-set" data-id="${escapeHtml(ex.id)}" aria-label="${demoText("Añadir Drop Set a", "Add Drop Set to")} ${escapeHtml(ex.name)}" title="${demoText("Añadir Drop Set", "Add Drop Set")}"><span aria-hidden="true">+ DS</span></button>`}</div><button type="button" class="remove-from-day" data-action="remove-exercise" data-id="${escapeHtml(ex.id)}">${activeDate === todayISO() ? demoText("Quitar de hoy", "Remove from today") : demoText("Quitar de la sesión", "Remove from session")}</button></div></div>` : ""}</article>`;
+    ${isOpen ? `<div class="sets-panel"><div class="set-header"><span>${demoText("Serie", "Set")}</span>${ex.group === "Cardio" ? `<span>${demoText("Minutos", "Minutes")}</span>` : weightHeading(ex)}<span>${ex.group === "Cardio" ? cardioMetric(ex).heading : "Reps"}</span><span>${demoText("Hecha", "Done")}</span><span></span></div>${sets.map((set, i) => `<div class="set-row"><span class="set-index">${String(i + 1).padStart(2, "0")}${set.dropSet ? '<small class="drop-set-label" title="Drop Set">DS</small>' : ""}</span>${renderSetFields(ex, set, i)}<input class="set-check" type="checkbox" ${set.done ? "checked" : ""} data-set-done data-ex="${escapeHtml(ex.id)}" data-set-id="${escapeHtml(set.id)}" aria-label="${demoText("Serie", "Set")} ${i + 1}${set.dropSet ? " Drop Set" : ""} ${demoText("hecha", "completed")}" /><button type="button" class="remove-set" data-action="remove-set" data-id="${escapeHtml(ex.id)}" data-set-id="${escapeHtml(set.id)}" aria-label="${demoText("Quitar serie", "Remove set")} ${i + 1}${set.dropSet ? " Drop Set" : ""}"><svg viewBox="0 0 24 24"><path d="M5 7h14m-12 0 1 13h8l1-13M9 7V4h6v3"/></svg></button></div>`).join("")}<div class="panel-actions"><div class="add-set-actions"><button type="button" class="add-set" data-action="add-set" data-id="${escapeHtml(ex.id)}" aria-label="${demoText("Añadir serie a", "Add set to")} ${escapeHtml(ex.name)}" title="${demoText("Añadir serie", "Add set")}"><span aria-hidden="true">+</span></button>${ex.group === "Cardio" ? "" : `<button type="button" class="add-set add-drop-set" data-action="add-drop-set" data-id="${escapeHtml(ex.id)}" aria-label="${demoText("Añadir Drop Set a", "Add Drop Set to")} ${escapeHtml(ex.name)}" title="${demoText("Añadir Drop Set", "Add Drop Set")}"><span aria-hidden="true">+ DS</span></button>`}</div><button type="button" class="remove-from-day" data-action="remove-exercise" data-id="${escapeHtml(ex.id)}">${activeDate === todayISO() ? demoText("Quitar de hoy", "Remove from today") : demoText("Quitar de la sesión", "Remove from session")}</button></div></div>` : ""}</article>`;
 }
 function renderCatalog() {
   ensureSession();
@@ -953,7 +975,7 @@ function summarySetText(exercise, set) {
     return `${measure(set.minutes)} min${String(metric ?? "").trim() !== "" ? ` · ${measure(metric)} ${cardioMetric(exercise).unit}` : ""}`;
   }
   const kg = decimalNumber(set.kg);
-  const weight = String(set.kg ?? "").trim() === "" || kg === 0 ? demoText("Peso corporal", "Bodyweight") : `${measure(set.kg)} kg`;
+  const weight = String(set.kg ?? "").trim() === "" || kg === 0 ? demoText("Peso corporal", "Bodyweight") : `${measure(displayedWeight(exercise, set.kg))} ${exerciseWeightUnit(exercise)}`;
   return `${weight} × ${measure(set.reps)} reps`;
 }
 function renderHistorySummary(date) {
@@ -1077,6 +1099,11 @@ function openImagePreview(id) {
     : `<svg class="preview-illustration" viewBox="${tileViews[ex.tile] || tileViews[0]}" role="img" aria-label="${demoText("Ilustración completa de", "Full illustration of")} ${escapeHtml(ex.name)}"><image href="./assets/ejercicios-referencia.png" width="684" height="978" /></svg>`;
   openOverlay(`<div class="image-preview-heading"><h2 id="sheet-title" lang="en">${escapeHtml(ex.name)}</h2><button type="button" class="image-close" data-close-overlay aria-label="${demoText("Cerrar ilustración", "Close illustration")}">✕</button></div>${illustration}`, true);
 }
+function canUsePanattaIllustration(ex) {
+  if (!ex || DEMO_MODE || ex.panattaIllustrationApplied || STARTER_EXERCISES.some(item => item.id === ex.id)) return false;
+  const matches = state.exercises.filter(item => item.name === "Super Declined Chest Press" && item.group === "Pecho" && item.equipment === "Panatta");
+  return matches.length === 1 && matches[0].id === ex.id;
+}
 function openExerciseForm(id) {
   const ex = id ? getExercise(id) : null;
   const options = GROUPS.map(group => `<option value="${group}" ${ex?.group === group ? "selected" : ""}>${demoLabel(group)}</option>`).join("");
@@ -1091,6 +1118,7 @@ function openExerciseForm(id) {
       <input id="exercise-equipment" class="field" name="equipment" maxlength="90" value="${escapeHtml(demoLabel(ex?.equipment || ""))}" placeholder="${demoText("Ej. Technogym · Polea", "e.g. Technogym · Cable")}" />
       ${DEMO_MODE ? "" : `<label class="field-label" for="exercise-photo">${ex ? "Cambiar imagen (opcional)" : "Imagen del ejercicio (opcional)"}</label>
       <input id="exercise-photo" class="file-control" type="file" accept="image/*" />`}
+      ${canUsePanattaIllustration(ex) ? `<label class="routine-option"><input type="checkbox" name="panattaIllustration" /><img class="routine-thumbnail" src="${STARTER_ILLUSTRATIONS["panatta-super-declined-chest-press"]}" alt="Ilustración de Super Declined Chest Press en máquina Panatta" /><span class="routine-option-copy"><strong>Usar ilustración Panatta</strong><small>Reemplaza la imagen al guardar. Conserva tu historial y tus rutinas. Si eliges una foto, se usará esa foto.</small></span></label>` : ""}
       <div class="sheet-buttons"><button type="button" class="secondary-button" data-close-overlay>${demoText("Cancelar", "Cancel")}</button><button type="submit" class="primary-button">${demoText("Guardar ejercicio", "Save exercise")}</button></div>
       ${ex ? `<button type="button" class="remove-from-day" style="margin-top:16px" data-action="${ex.archived ? "restore-exercise" : "archive-exercise"}" data-id="${escapeHtml(ex.id)}">${ex.archived ? demoText("Restaurar ejercicio", "Restore exercise") : demoText("Archivar ejercicio", "Archive exercise")}</button>` : ""}
     </form>`);
@@ -1197,6 +1225,7 @@ function validateBackup(parsed) {
       requireValid(ex[key] === undefined || typeof ex[key] === "string");
     for (const key of ["favorite", "archived"])
       requireValid(ex[key] === undefined || typeof ex[key] === "boolean");
+    requireValid(ex.weightUnit === undefined || ex.weightUnit === "kg" || ex.weightUnit === "lb");
     requireValid(ex.tile == null || Number.isInteger(ex.tile));
   }
   for (const [date, session] of Object.entries(parsed.sessions)) {
@@ -1239,6 +1268,14 @@ document.addEventListener("click", async event => {
   const button = event.target.closest("[data-action]");
   if (!button) return;
   const { action, id } = button.dataset;
+  if (action === "toggle-weight-unit") {
+    const ex = getExercise(id);
+    if (!ex || ex.group === "Cardio") return;
+    ex.weightUnit = exerciseWeightUnit(ex) === "kg" ? "lb" : "kg";
+    persist(); render();
+    document.querySelector(`[data-action="toggle-weight-unit"][data-id="${CSS.escape(id)}"]`)?.focus({ preventScroll: true });
+    return;
+  }
   if (action === "reset-demo") { await resetDemo(); return; }
   if (DEMO_MODE && ["export", "import"].includes(action)) return;
   if (action === "undo-removal") { const undo = undoAction; undoAction = null; clearTimeout(toastTimer); $("#toast").classList.remove("show"); if (undo) undo(); return; }
@@ -1365,7 +1402,7 @@ document.addEventListener("input", event => {
   if (!field) return;
   const set = ensureSession().sets[event.target.dataset.ex]?.find(item => item.id === event.target.dataset.setId);
   if (set) {
-    set[field] = event.target.value;
+    set[field] = field === "kg" ? canonicalWeight(getExercise(event.target.dataset.ex), event.target.value) : event.target.value;
     delete set.prefilled;
     if (getExercise(event.target.dataset.ex)?.group !== "Cardio" && (field === "kg" || field === "reps") && updateAutoDone(set)) {
       delete ensureSession().completed[event.target.dataset.ex];
@@ -1423,12 +1460,14 @@ document.addEventListener("submit", async event => {
     const id = form.dataset.editId;
     const existing = id ? getExercise(id) : null;
     const file = DEMO_MODE ? undefined : $("#exercise-photo").files?.[0];
-    const image = file ? await resizePhoto(file) : existing?.image;
+    const usePanattaIllustration = !file && form.elements.panattaIllustration?.checked && canUsePanattaIllustration(existing);
+    const image = file ? await resizePhoto(file) : usePanattaIllustration ? STARTER_ILLUSTRATIONS["panatta-super-declined-chest-press"] : existing?.image;
     const exercise = existing ? { ...existing } : { id: uid(), tile: null };
     exercise.name = form.elements.name.value.trim();
     exercise.group = form.elements.group.value;
     exercise.equipment = form.elements.equipment.value.trim() || demoText("Equipo no indicado", "Equipment not specified");
     if (image) exercise.image = image;
+    if (usePanattaIllustration) exercise.panattaIllustrationApplied = true;
     const previous = state.exercises;
     state.exercises = existing ? previous.map(item => item.id === id ? exercise : item) : [...previous, exercise];
     try { await persistNow(); } catch (error) { state.exercises = previous; throw error; }
@@ -1541,3 +1580,4 @@ async function init() {
   }
 }
 init();
+
