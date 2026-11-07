@@ -1081,7 +1081,7 @@ function openExerciseForm(id) {
   const ex = id ? getExercise(id) : null;
   const options = GROUPS.map(group => `<option value="${group}" ${ex?.group === group ? "selected" : ""}>${demoLabel(group)}</option>`).join("");
   openOverlay(`<h2 id="sheet-title">${ex ? demoText("Editar ejercicio", "Edit exercise") : demoText("Nuevo ejercicio", "New exercise")}</h2>
-    <p>${DEMO_MODE ? demoText("Prueba los cambios en este navegador con datos de ejemplo.", "Try changes in this browser with sample data.") : ex ? "Actualiza el nombre, equipo o imagen del movimiento." : "Añade una imagen para reconocerlo rápidamente en el gimnasio."}</p>
+    <p>${DEMO_MODE ? demoText("Prueba los cambios en este navegador con datos de ejemplo.", "Try changes in this browser with sample data.") : ex ? "Actualiza el nombre, equipo o imagen del movimiento." : "La imagen es opcional. Puedes añadirla ahora o más adelante desde Editar."}</p>
     <form id="exercise-form" data-edit-id="${escapeHtml(ex?.id || "")}">
       <label class="field-label" for="exercise-name">${demoText("Nombre en inglés", "English name")}</label>
       <input id="exercise-name" class="field" name="name" lang="en" required maxlength="90" value="${escapeHtml(ex?.name || "")}" placeholder="${demoText("Ej. Machine Chest Press", "e.g. Machine Chest Press")}" />
@@ -1089,8 +1089,8 @@ function openExerciseForm(id) {
       <select id="exercise-group" class="field" name="group">${options}</select>
       <label class="field-label" for="exercise-equipment">${demoText("Equipo o máquina", "Equipment or machine")}</label>
       <input id="exercise-equipment" class="field" name="equipment" maxlength="90" value="${escapeHtml(demoLabel(ex?.equipment || ""))}" placeholder="${demoText("Ej. Technogym · Polea", "e.g. Technogym · Cable")}" />
-      ${DEMO_MODE ? "" : `<label class="field-label" for="exercise-photo">${ex ? "Cambiar imagen (opcional)" : "Imagen del ejercicio"}</label>
-      <input id="exercise-photo" class="file-control" type="file" accept="image/*" ${ex ? "" : "required"} />`}
+      ${DEMO_MODE ? "" : `<label class="field-label" for="exercise-photo">${ex ? "Cambiar imagen (opcional)" : "Imagen del ejercicio (opcional)"}</label>
+      <input id="exercise-photo" class="file-control" type="file" accept="image/*" />`}
       <div class="sheet-buttons"><button type="button" class="secondary-button" data-close-overlay>${demoText("Cancelar", "Cancel")}</button><button type="submit" class="primary-button">${demoText("Guardar ejercicio", "Save exercise")}</button></div>
       ${ex ? `<button type="button" class="remove-from-day" style="margin-top:16px" data-action="${ex.archived ? "restore-exercise" : "archive-exercise"}" data-id="${escapeHtml(ex.id)}">${ex.archived ? demoText("Restaurar ejercicio", "Restore exercise") : demoText("Archivar ejercicio", "Archive exercise")}</button>` : ""}
     </form>`);
@@ -1423,7 +1423,6 @@ document.addEventListener("submit", async event => {
     const id = form.dataset.editId;
     const existing = id ? getExercise(id) : null;
     const file = DEMO_MODE ? undefined : $("#exercise-photo").files?.[0];
-    if (!DEMO_MODE && !existing && !file) throw new Error("Falta imagen");
     const image = file ? await resizePhoto(file) : existing?.image;
     const exercise = existing ? { ...existing } : { id: uid(), tile: null };
     exercise.name = form.elements.name.value.trim();

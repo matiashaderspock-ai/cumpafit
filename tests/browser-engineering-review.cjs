@@ -95,6 +95,20 @@ fs.mkdirSync(output, { recursive: true });
         tx.oncomplete = () => db.close();
       };
     }));
+    // Create without a photo and reload: persistence must
+    // keep the neutral placeholder without requesting an empty image URL.
+    await log.locator('[data-tab="catalog"]').click();
+    await log.locator('[data-action="new-exercise"]').click();
+    assert.equal(await log.locator('#exercise-photo').getAttribute('required'), null);
+    await log.locator('#exercise-name').fill('Optional Photo Press');
+    await log.getByRole('button', { name: 'Guardar ejercicio', exact: true }).click();
+    await log.locator('#overlay').waitFor({ state: 'hidden' });
+    const imageFree = (await readState()).exercises.find(ex => ex.name === 'Optional Photo Press');
+    assert.ok(imageFree);
+    assert.equal(imageFree.image, undefined);
+    assert.equal(imageFree.tile, null);
+    await log.reload();
+    assert.ok((await readState()).exercises.some(ex => ex.id === imageFree.id && !ex.image));
     await log.locator('[data-action="go-catalog"]').first().click();
     await log.locator('[data-action="catalog-toggle"]').first().click();
     await log.locator('[data-action="return-session"]').click();
