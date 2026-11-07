@@ -176,9 +176,9 @@ dialog.overlay::backdrop{background:transparent}
 @media(max-width:360px){.history-summary-actions{grid-template-columns:1fr}.history-summary-actions .history-edit-action{grid-column:auto}}
 
 /* Keep the series and weight headings separated while preserving 44px controls. */
-.session-card .set-header,.session-card .set-row{grid-template-columns:34px minmax(0,68px) minmax(0,58px) 44px 44px;column-gap:4px}
-.session-card .set-header{align-items:end}
-.weight-heading{display:flex;flex-direction:column;align-items:center;gap:0}
+.session-card .set-header,.session-card .set-row{grid-template-columns:34px 82px minmax(0,58px) 44px 44px;column-gap:4px}
+.session-card .set-header{align-items:center}
+.weight-heading{display:flex;align-items:center;justify-content:center;gap:0;white-space:nowrap}
 .weight-unit-toggle{display:flex;align-items:center;justify-content:center;gap:4px;min-height:44px;width:44px;min-width:44px;border:0;border-radius:8px;background:transparent;color:#95603c;font:inherit;font-size:11px;letter-spacing:0;text-transform:none;cursor:pointer}
 .weight-unit-toggle .weight-unit-cue{font-size:10px;font-weight:500}
 .weight-unit-toggle:hover,.weight-unit-toggle:active{background:#f8f4ef}

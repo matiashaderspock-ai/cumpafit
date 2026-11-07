@@ -80,13 +80,49 @@ fs.mkdirSync(output, { recursive: true });
       const headingBoxes = await units.locator('.set-header').first().evaluate(element => {
         const series = element.children[0].getBoundingClientRect();
         const weight = element.children[1].getBoundingClientRect();
-        return { gap: weight.left - series.right, seriesWidth: series.width };
+        const label = document.createRange();
+        label.selectNodeContents(element.children[1].firstChild);
+        const labelBox = label.getBoundingClientRect();
+        const toggle = element.querySelector('.weight-unit-toggle').getBoundingClientRect();
+        const reps = element.children[2].getBoundingClientRect();
+        return { gap: weight.left - series.right, seriesWidth: series.width,
+          headerHeight: element.getBoundingClientRect().height,
+          sameLine: Math.abs((labelBox.top + labelBox.height / 2) - (toggle.top + toggle.height / 2)) < 2,
+          noOverlap: labelBox.right <= toggle.left + 1 && toggle.right <= reps.left,
+          touchWidth: toggle.width, touchHeight: toggle.height };
       });
       assert.ok(headingBoxes.gap >= 4 && headingBoxes.seriesWidth >= 34, 'Series and weight headings have distinct columns');
+      assert.ok(headingBoxes.sameLine && headingBoxes.noOverlap, 'Weight and unit share one line without covering adjacent headings');
+      assert.ok(headingBoxes.headerHeight <= 44 && headingBoxes.touchWidth >= 44 && headingBoxes.touchHeight >= 44, 'Single-row header retains 44px touch target');
+      await units.screenshot({ path: `${output}/weight-inline-${width}.png` });
     }
     await units.setViewportSize({ width: 390, height: 844 });
     await units.screenshot({ path: `${output}/weight-unit-mobile.png` });
     await unitContext.close();
+    const spanishContext = await browser.newContext({ ...devices['iPhone 13'], locale: 'es-BO' });
+    const spanish = await spanishContext.newPage();
+    await spanish.goto(base);
+    await spanish.waitForFunction(() => Boolean(state));
+    await spanish.evaluate(() => { state = createDemoState(); expandedId = ensureSession().selected[0]; render(); });
+    await spanish.locator('[data-action="toggle-weight-unit"]').waitFor();
+    for (const width of [320, 390]) {
+      await spanish.setViewportSize({ width, height: 844 });
+      assert.ok(await spanish.locator('.set-header').first().evaluate(header => {
+        const heading = header.querySelector('.weight-heading');
+        const range = document.createRange();
+        range.selectNodeContents(heading.firstChild);
+        const label = range.getBoundingClientRect();
+        const button = heading.querySelector('button').getBoundingClientRect();
+        const series = header.children[0].getBoundingClientRect();
+        const reps = header.children[2].getBoundingClientRect();
+        return heading.firstChild.textContent === 'Peso' && header.getBoundingClientRect().height <= 44 &&
+          Math.abs(label.top + label.height / 2 - button.top - button.height / 2) < 2 &&
+          series.right < label.left && label.right <= button.left + 1 && button.right <= reps.left &&
+          button.width >= 44 && button.height >= 44;
+      }), 'Spanish Peso and unit share one compact line without overlapping Serie or Reps');
+      await spanish.screenshot({ path: `${output}/weight-inline-spanish-${width}.png` });
+    }
+    await spanishContext.close();
     const context = await browser.newContext({ ...devices['iPhone 13'], locale: 'es-BO', reducedMotion: 'reduce' });
     const page = await context.newPage(), errors = [];
     page.on('pageerror', error => errors.push(error.message));
