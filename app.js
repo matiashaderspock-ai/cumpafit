@@ -88,14 +88,17 @@ const STARTER_EXERCISES = [
   {"id":"dumbbell-wrist-curl","name":"Dumbbell Wrist Curl","nameEs":"Curl de muñecas con mancuernas","group":"Otros","equipment":"Mancuernas · Banco"},
   {"id":"dumbbell-reverse-wrist-curl","name":"Dumbbell Reverse Wrist Curl","nameEs":"Extensión de muñecas con mancuernas","group":"Otros","equipment":"Mancuernas · Banco"},
   {"id":"standing-ez-bar-machine-curl","name":"Standing EZ-Bar Machine Curl","group":"Bíceps","equipment":"Panatta · Máquina de pesas con selector","nameEs":"Curl de bíceps de pie en máquina con barra EZ"},
+  {"id":"panatta-alternate-arm-curl-45","name":"Panatta Alternate Arm Curl -45","nameEs":"Curl alterno de bíceps en máquina a -45°","group":"Bíceps","equipment":"Panatta Alternate Arm Curl -45"},
 ];
 const STARTER_ILLUSTRATIONS = {
+  "panatta-alternate-arm-curl-45": "./assets/panatta-alternate-arm-curl-45.png",
+  "panatta-super-inclined-chest-press": "./assets/panatta-super-inclined-chest-press.png",
   "panatta-vertical-chest-press": "./assets/panatta-vertical-chest-press.png",
   "panatta-power-smith-upper-incline": "./assets/panatta-power-smith-upper-incline.png",
   "panatta-power-smith-upper-shoulder-press": "./assets/panatta-power-smith-upper-shoulder-press.png",
   "panatta-power-smith-flat-chest-press": "./assets/panatta-power-smith-flat-chest-press.png",
   "panatta-power-smith-decline-chest-press": "./assets/panatta-power-smith-decline-chest-press.png",
-  "panatta-super-declined-chest-press": "./assets/panatta-super-declined-chest-press.jpg",
+  "panatta-super-declined-chest-press": "./assets/panatta-super-declined-chest-press-v2.png",
   "standing-ez-bar-machine-curl": "./assets/standing-ez-bar-machine-curl.png",
   "curl-inclinado": "./assets/curl-inclinado-hd.jpg",
   "triceps-pushdown": "./assets/triceps-pushdown-hd.jpg",
@@ -1143,16 +1146,36 @@ function openImagePreview(id) {
     : `<svg class="preview-illustration" viewBox="${tileViews[ex.tile] || tileViews[0]}" role="img" aria-label="${demoText("Ilustración completa de", "Full illustration of")} ${escapeHtml(ex.name)}"><image href="./assets/ejercicios-referencia.png" width="684" height="978" /></svg>`;
   openOverlay(`<div class="image-preview-heading"><h2 id="sheet-title" lang="en">${escapeHtml(ex.name)}</h2><button type="button" class="image-close" data-close-overlay aria-label="${demoText("Cerrar ilustración", "Close illustration")}">✕</button></div>${illustration}`, true);
 }
-function panattaIllustrationFor(ex) {
-  if (!ex || DEMO_MODE || ex.panattaIllustrationApplied || STARTER_EXERCISES.some(item => item.id === ex.id)) return null;
+function panattaIllustrationTarget(ex, snapshot = state) {
+  if (!ex || DEMO_MODE || STARTER_EXERCISES.some(item => item.id === ex.id)) return null;
   const illustrationIds = {
     "Super Declined Chest Press": "panatta-super-declined-chest-press",
+    "Super Inclined Chest Press": "panatta-super-inclined-chest-press",
     "Vertical Chest Press": "panatta-vertical-chest-press"
   };
   const illustrationId = illustrationIds[ex.name];
   if (!illustrationId || ex.group !== "Pecho" || ex.equipment !== "Panatta") return null;
-  const matches = state.exercises.filter(item => item.name === ex.name && item.group === "Pecho" && item.equipment === "Panatta");
+  const matches = snapshot.exercises.filter(item => item.name === ex.name && item.group === "Pecho" && item.equipment === "Panatta");
   return matches.length === 1 && matches[0].id === ex.id ? STARTER_ILLUSTRATIONS[illustrationId] : null;
+}
+function panattaIllustrationFor(ex) {
+  const target = panattaIllustrationTarget(ex);
+  if (!target || ex.panattaIllustrationApplied === target) return null;
+  // The old boolean marker predates the revised Super Declined illustration.
+  if (ex.panattaIllustrationApplied === true && ex.name === "Vertical Chest Press") return null;
+  return target;
+}
+function migrateKnownPanattaIllustrations(snapshot) {
+  let changed = 0;
+  for (const ex of snapshot.exercises) {
+    if (ex.name !== "Super Declined Chest Press" || ex.image !== "./assets/panatta-super-declined-chest-press.jpg") continue;
+    const target = panattaIllustrationTarget(ex, snapshot);
+    if (!target) continue;
+    ex.image = target;
+    ex.panattaIllustrationApplied = target;
+    changed++;
+  }
+  return changed;
 }
 function canUsePanattaIllustration(ex) {
   return Boolean(panattaIllustrationFor(ex));
@@ -1244,6 +1267,7 @@ async function importBackup(file) {
     if (!confirm("Esto reemplazará todos los ejercicios, rutinas y sesiones de este dispositivo. ¿Continuar?")) return;
     validated = true;
     migrateExerciseNames(replacement);
+    migrateKnownPanattaIllustrations(replacement);
     // Finish the current workout's pending save before replacing it. Keep the
     // active state until the replacement transaction commits successfully.
     await persistNow();
@@ -1538,7 +1562,7 @@ document.addEventListener("submit", async event => {
     exercise.group = form.elements.group.value;
     exercise.equipment = form.elements.equipment.value.trim() || demoText("Equipo no indicado", "Equipment not specified");
     if (image) exercise.image = image;
-    if (usePanattaIllustration) exercise.panattaIllustrationApplied = true;
+    if (usePanattaIllustration) exercise.panattaIllustrationApplied = image;
     const previous = state.exercises;
     state.exercises = existing ? previous.map(item => item.id === id ? exercise : item) : [...previous, exercise];
     try { await persistNow(); } catch (error) { state.exercises = previous; throw error; }
@@ -1642,7 +1666,8 @@ async function init() {
     if (needsRoutines) state.routines = [];
     const addedExercises = mergeStarterExercises(state);
     const renamedExercises = migrateExerciseNames(state);
-    if ((DEMO_MODE && !savedState) || addedExercises || renamedExercises || needsRoutines) await writeState(structuredClone(state));
+    const revisedIllustrations = migrateKnownPanattaIllustrations(state);
+    if ((DEMO_MODE && !savedState) || addedExercises || renamedExercises || revisedIllustrations || needsRoutines) await writeState(structuredClone(state));
     activeDate = observedToday = todayISO();
     if (DEMO_MODE) expandedId = state.sessions[activeDate]?.selected[0] || "";
     render();
