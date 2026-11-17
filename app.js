@@ -42,9 +42,9 @@ const STARTER_EXERCISES = [
   {"id":"ski-ergometer","name":"Ski Ergometer","group":"Cardio","equipment":"Technogym Skillup","nameEs":"Ergómetro de esquí","legacyName":"Ski Ergometer","legacyEquipment":"Ergómetro de esquí · Technogym Skillup"},
   {"id":"skillmill-walking-running","name":"Curved Treadmill Walking / Running","group":"Cardio","equipment":"Cinta curva autopropulsada · Technogym Skillmill","nameEs":"Caminata o carrera en cinta curva","legacyName":"Curved Treadmill Walking / Running","legacyEquipment":"Caminata o carrera en cinta curva autopropulsada · Technogym Skillmill"},
   {"id":"wide-machine-chest-press","name":"Wide Machine Chest Press","group":"Pecho","equipment":"Technogym Pure Strength Wide Chest Press","nameEs":"Press de pecho amplio en máquina","legacyName":"Wide Machine Chest Press","legacyEquipment":"Press de pecho amplio · Technogym Pure Strength Wide Chest Press"},
-  {"id":"panatta-power-smith-flat-chest-press","name":"Panatta Power Smith Dual System (Flat)","legacyName":"Flat Chest Press","nameEs":"Press de pecho plano","group":"Pecho","equipment":"Panatta Power Smith Dual System"},
-  {"id":"panatta-power-smith-decline-chest-press","name":"Panatta Power Smith Dual System (Decline)","legacyName":"Decline Chest Press","nameEs":"Press de pecho declinado (pecho bajo)","group":"Pecho","equipment":"Panatta Power Smith Dual System"},
-  {"id":"panatta-power-smith-upper-incline","name":"Panatta Power Smith Dual System Upper (Incline)","nameEs":"Press de pecho inclinado","group":"Pecho","equipment":"Panatta Power Smith Dual System Upper"},
+  {"id":"panatta-power-smith-flat-chest-press","name":"Flat Chest Press","legacyName":"Panatta Power Smith Dual System (Flat)","nameEs":"Press de pecho plano","group":"Pecho","equipment":"Panatta Power Smith Dual System"},
+  {"id":"panatta-power-smith-decline-chest-press","name":"Decline Chest Press","legacyName":"Panatta Power Smith Dual System (Decline)","nameEs":"Press de pecho declinado (pecho bajo)","group":"Pecho","equipment":"Panatta Power Smith Dual System"},
+  {"id":"panatta-power-smith-upper-incline","name":"Incline Chest Press","legacyName":"Panatta Power Smith Dual System Upper (Incline)","nameEs":"Press de pecho inclinado","group":"Pecho","equipment":"Panatta Power Smith Dual System Upper"},
   {"id":"panatta-power-smith-upper-shoulder-press","name":"Panatta Power Smith Dual System Upper (Shoulder Press)","nameEs":"Press de hombros","group":"Hombros","equipment":"Panatta Power Smith Dual System Upper"},
   {"id":"smith-machine-squat","name":"Smith Machine Squat","group":"Piernas","equipment":"Technogym Multipower · Smith","nameEs":"Sentadilla en máquina Smith","legacyName":"Smith Machine Squat","legacyEquipment":"Sentadilla con barra guiada · Technogym Multipower · Smith"},
   {"id":"wall-ball","name":"Wall Ball Throw","group":"Otros","equipment":"Balón medicinal · Zona de wall ball","nameEs":"Lanzamiento de balón medicinal a la pared","legacyName":"Wall Ball Throw","legacyEquipment":"Lanzamiento de balón medicinal a la pared · Zona de wall ball"},
@@ -1159,11 +1159,18 @@ function panattaIllustrationTarget(ex, snapshot = state) {
   return matches.length === 1 && matches[0].id === ex.id ? STARTER_ILLUSTRATIONS[illustrationId] : null;
 }
 function panattaIllustrationFor(ex) {
-  const target = panattaIllustrationTarget(ex);
-  if (!target || ex.panattaIllustrationApplied === target) return null;
-  // The old boolean marker predates the revised Super Declined illustration.
-  if (ex.panattaIllustrationApplied === true && ex.name === "Vertical Chest Press") return null;
-  return target;
+  if (!ex || DEMO_MODE) return null;
+  const normalize = value => normalizeSearch(value).trim().replace(/\s+/g, " ");
+  const illustrationIds = {
+    "super declined chest press": "panatta-super-declined-chest-press",
+    "super inclined chest press": "panatta-super-inclined-chest-press",
+    "vertical chest press": "panatta-vertical-chest-press"
+  };
+  if (normalize(ex.group) !== "pecho" || normalize(ex.equipment) !== "panatta") return null;
+  const target = STARTER_ILLUSTRATIONS[illustrationIds[normalize(ex.name)]];
+  // This is an explicit choice on the selected record, not an automatic migration.
+  // Its old ID, duplicates, or a stale choice marker must not hide the option.
+  return target && ex.image !== target ? target : null;
 }
 function migrateKnownPanattaIllustrations(snapshot) {
   let changed = 0;
