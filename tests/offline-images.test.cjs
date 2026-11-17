@@ -93,7 +93,7 @@ test('offline manifest covers the catalog and contains actual image content revi
   const manifest = JSON.parse(sw.match(/const IMAGE_FILES = (\{[\s\S]*?\n\});/)[1]);
   const app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
   const illustrations = JSON.parse(app.match(/const STARTER_ILLUSTRATIONS = (\{[\s\S]*?\n\});/)[1]);
-  assert.deepEqual(Object.keys(manifest).sort(), [...new Set(['./assets/ejercicios-referencia.png', ...Object.values(illustrations)])].sort());
+  assert.deepEqual(Object.keys(manifest).sort(), [...new Set(['./assets/ejercicios-referencia.png', './assets/panatta-super-declined-chest-press.jpg', ...Object.values(illustrations)])].sort());
   for (const [file, hash] of Object.entries(manifest)) assert.equal(hash, revision(fs.readFileSync(path.join(root, file))));
 });
 
@@ -321,4 +321,13 @@ test('cached application shell remains usable when the network stalls', async ()
   const result = await w.request('./', 'navigate').response;
   assert.equal(await result.text(), 'saved shell');
   assert.equal(w.calls.length, 1);
+});
+
+test('legacy Super Declined image remains revisioned offline for preserved custom cards and backups', () => {
+ const source=fs.readFileSync(path.join(root,'sw.js'),'utf8');
+ const manifest=JSON.parse(source.match(/const IMAGE_FILES = (\{[\s\S]*?\n\});/)[1]);
+ for (const file of ['./assets/panatta-super-declined-chest-press.jpg','./assets/panatta-super-declined-chest-press-v2.png']) {
+  assert.equal(manifest[file],revision(fs.readFileSync(path.join(root,file))));
+ }
+ assert.equal(spawnSync(process.execPath,[path.join(root,'scripts/update-image-manifest.cjs'),'--check']).status,0);
 });

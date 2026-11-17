@@ -66,6 +66,7 @@ const IMAGE_FILES = {
   "./assets/panatta-power-smith-upper-incline.png": "bded8454428edee6",
   "./assets/panatta-power-smith-upper-shoulder-press.png": "2896829a10adfad2",
   "./assets/panatta-super-declined-chest-press-v2.png": "492475f200b83f52",
+  "./assets/panatta-super-declined-chest-press.jpg": "759c682065af4d84",
   "./assets/panatta-super-inclined-chest-press.png": "e9b5c05e2d5d76ff",
   "./assets/panatta-vertical-chest-press.png": "48b8dbc707a7cc89",
   "./assets/pec-deck.jpg": "ae64c7377419bc4a",
