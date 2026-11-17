@@ -17,7 +17,7 @@ test('Power Smith flat and decline are distinct bilingual chest catalog entries 
   for (const [index, id] of ids.entries()) {
     const ex = run(`STARTER_EXERCISES.filter(ex => ex.id === '${id}')`);
     assert.equal(ex.length, 1);
-    assert.equal(ex[0].name, index ? 'Decline Chest Press' : 'Flat Chest Press');
+    assert.equal(ex[0].name, index ? 'Panatta Power Smith Dual System (Decline)' : 'Panatta Power Smith Dual System (Flat)');
     assert.match(ex[0].nameEs, index ? /declinado.*pecho bajo/ : /plano/);
     assert.equal(ex[0].group, 'Pecho');
     assert.equal(ex[0].equipment, 'Panatta Power Smith Dual System');
@@ -43,4 +43,16 @@ test('catalog upgrade adds variants once without overwriting custom exercises, h
   assert.equal(run(`state.exercises.find(ex=>ex.id==='${ids[0]}').image`), 'data:image/png;base64,custom');
   run(`state.exercises=state.exercises.filter(ex=>ex.id!=='${ids[1]}');state.deletedExerciseIds=['${ids[1]}'];`);
   assert.equal(run('mergeStarterExercises(state)'), 0);
+});
+
+test('machine-title migration preserves IDs, user edits, and workout references', () => {
+ const run=harness();
+ run(`state=initialState();state.exercises.find(ex=>ex.id==='${ids[0]}').name='Flat Chest Press';state.exercises.find(ex=>ex.id==='${ids[1]}').name='My custom decline';
+ state.sessions={old:{selected:['${ids[0]}'],sets:{'${ids[0]}':[{kg:'30',reps:'8'}]}}};state.routines=[{id:'r',exerciseIds:['${ids[0]}']}];`);
+ const before=run('JSON.stringify([state.sessions,state.routines])');
+ run('migrateExerciseNames(state)');
+ assert.equal(run(`state.exercises.find(ex=>ex.id==='${ids[0]}').name`),'Panatta Power Smith Dual System (Flat)');
+ assert.equal(run(`state.exercises.find(ex=>ex.id==='${ids[1]}').name`),'My custom decline');
+ assert.equal(run('JSON.stringify([state.sessions,state.routines])'),before);
+ assert.equal(run('migrateExerciseNames(state)'),0);
 });
