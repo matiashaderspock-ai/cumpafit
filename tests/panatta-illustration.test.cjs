@@ -2,18 +2,18 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
-function harness() {
+function harness(name = "Super Declined Chest Press") {
   const listeners = {}, button = {}, photo = { files: [] };
   const context = vm.createContext({Date, Intl, structuredClone, setTimeout, clearTimeout, setInterval() {}, console,
     document: { addEventListener(type, handler) { (listeners[type] ||= []).push(handler); }, querySelector: () => photo },
     window: { addEventListener() {}, scrollTo() {} }});
   vm.runInContext(fs.readFileSync(__dirname + '/../app.js', 'utf8').replace(/\ninit\(\);\s*$/, '\n'), context);
   const run = code => vm.runInContext(code, context);
-  run(`state = initialState(); state.exercises.push({id:'custom-panatta',name:'Super Declined Chest Press',group:'Pecho',equipment:'Panatta',image:'data:image/jpeg;base64,old',favorite:true});
+  run(`state = initialState(); state.exercises.push({id:'custom-panatta',name:${JSON.stringify(name)},group:'Pecho',equipment:'Panatta',image:'data:image/jpeg;base64,old',favorite:true});
     state.sessions={'2026-11-06':{selected:['custom-panatta'],sets:{'custom-panatta':[{id:'set-1',kg:'15',reps:'8',done:true}]},completed:{'custom-panatta':true}}}; state.routines=[{id:'routine',exerciseIds:['custom-panatta']}];
     persistNow=async()=>{}; render=()=>{};closeOverlay=()=>{};showToast=()=>{};openOverlay=html=>globalThis.formHtml=html;resizePhoto=async()=> 'data:image/jpeg;base64,new';`);
   const form = {id:'exercise-form',dataset:{editId:'custom-panatta'},querySelector:()=>button,
-    elements:{name:{value:'Super Declined Chest Press'},group:{value:'Pecho'},equipment:{value:'Panatta'},panattaIllustration:{checked:false}}};
+    elements:{name:{value:name},group:{value:'Pecho'},equipment:{value:'Panatta'},panattaIllustration:{checked:false}}};
   return {run,form,photo,button,save:()=>listeners.submit[0]({target:form,preventDefault(){}})};
 }
 test('Panatta choice is unchecked and limited to one exact custom match',()=>{
@@ -49,4 +49,34 @@ test('failed save rolls back image and marker and allows retry',async()=>{
  assert.equal(run('getExercise("custom-panatta").image'),'data:image/jpeg;base64,old');
  assert.equal(run('getExercise("custom-panatta").panattaIllustrationApplied'),undefined);assert.equal(button.disabled,false);
  run('persistNow=async()=>{}');await save();assert.equal(run('getExercise("custom-panatta").panattaIllustrationApplied'),true);
+});
+
+for (const name of ['Super Declined Chest Press', 'Vertical Chest Press']) {
+ test(`${name}: explicit replacement keeps identity/history and does not automatically overwrite photos`,async()=>{
+  const {run,form,save,photo}=harness(name);
+  const expected=name==='Vertical Chest Press'?'./assets/panatta-vertical-chest-press.png':'./assets/panatta-super-declined-chest-press.jpg';
+  const before=run('JSON.stringify([state.sessions,state.routines])');
+  run('openExerciseForm("custom-panatta")');
+  assert.ok(run('formHtml').includes(expected));
+  assert.doesNotMatch(run('formHtml').match(/<input type="checkbox" name="panattaIllustration"[^>]*>/)[0],/checked/);
+  await save();assert.equal(run('getExercise("custom-panatta").image'),'data:image/jpeg;base64,old');
+  form.elements.panattaIllustration.checked=true;await save();
+  assert.equal(run('getExercise("custom-panatta").image'),expected);
+  assert.equal(run('getExercise("custom-panatta").name'),name);
+  assert.equal(run('getExercise("custom-panatta").id'),'custom-panatta');
+  assert.equal(run('JSON.stringify([state.sessions,state.routines])'),before);
+  assert.equal(run('canUsePanattaIllustration(getExercise("custom-panatta"))'),false);
+  photo.files=[{}];await save();assert.equal(run('getExercise("custom-panatta").image'),'data:image/jpeg;base64,new');
+ });
+}
+test('Vertical replacement rejects duplicates, other equipment, muscle groups and starter IDs',()=>{
+ const {run}=harness('Vertical Chest Press');
+ run('state.exercises.push({...getExercise("custom-panatta"),id:"duplicate"})');
+ assert.equal(run('canUsePanattaIllustration(getExercise("custom-panatta"))'),false);
+ run('state.exercises.pop();getExercise("custom-panatta").equipment="Other"');
+ assert.equal(run('canUsePanattaIllustration(getExercise("custom-panatta"))'),false);
+ run('getExercise("custom-panatta").equipment="Panatta";getExercise("custom-panatta").group="Hombros"');
+ assert.equal(run('canUsePanattaIllustration(getExercise("custom-panatta"))'),false);
+ run('getExercise("custom-panatta").group="Pecho";getExercise("custom-panatta").id="press-pecho-maquina"');
+ assert.equal(run('canUsePanattaIllustration(state.exercises.at(-1))'),false);
 });

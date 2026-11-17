@@ -90,6 +90,7 @@ const STARTER_EXERCISES = [
   {"id":"standing-ez-bar-machine-curl","name":"Standing EZ-Bar Machine Curl","group":"Bíceps","equipment":"Panatta · Máquina de pesas con selector","nameEs":"Curl de bíceps de pie en máquina con barra EZ"},
 ];
 const STARTER_ILLUSTRATIONS = {
+  "panatta-vertical-chest-press": "./assets/panatta-vertical-chest-press.png",
   "panatta-power-smith-upper-incline": "./assets/panatta-power-smith-upper-incline.png",
   "panatta-power-smith-upper-shoulder-press": "./assets/panatta-power-smith-upper-shoulder-press.png",
   "panatta-power-smith-flat-chest-press": "./assets/panatta-power-smith-flat-chest-press.png",
@@ -1142,10 +1143,19 @@ function openImagePreview(id) {
     : `<svg class="preview-illustration" viewBox="${tileViews[ex.tile] || tileViews[0]}" role="img" aria-label="${demoText("Ilustración completa de", "Full illustration of")} ${escapeHtml(ex.name)}"><image href="./assets/ejercicios-referencia.png" width="684" height="978" /></svg>`;
   openOverlay(`<div class="image-preview-heading"><h2 id="sheet-title" lang="en">${escapeHtml(ex.name)}</h2><button type="button" class="image-close" data-close-overlay aria-label="${demoText("Cerrar ilustración", "Close illustration")}">✕</button></div>${illustration}`, true);
 }
+function panattaIllustrationFor(ex) {
+  if (!ex || DEMO_MODE || ex.panattaIllustrationApplied || STARTER_EXERCISES.some(item => item.id === ex.id)) return null;
+  const illustrationIds = {
+    "Super Declined Chest Press": "panatta-super-declined-chest-press",
+    "Vertical Chest Press": "panatta-vertical-chest-press"
+  };
+  const illustrationId = illustrationIds[ex.name];
+  if (!illustrationId || ex.group !== "Pecho" || ex.equipment !== "Panatta") return null;
+  const matches = state.exercises.filter(item => item.name === ex.name && item.group === "Pecho" && item.equipment === "Panatta");
+  return matches.length === 1 && matches[0].id === ex.id ? STARTER_ILLUSTRATIONS[illustrationId] : null;
+}
 function canUsePanattaIllustration(ex) {
-  if (!ex || DEMO_MODE || ex.panattaIllustrationApplied || STARTER_EXERCISES.some(item => item.id === ex.id)) return false;
-  const matches = state.exercises.filter(item => item.name === "Super Declined Chest Press" && item.group === "Pecho" && item.equipment === "Panatta");
-  return matches.length === 1 && matches[0].id === ex.id;
+  return Boolean(panattaIllustrationFor(ex));
 }
 function openExerciseForm(id) {
   const ex = id ? state.exercises.find(ex => ex.id === id) : null;
@@ -1162,7 +1172,7 @@ function openExerciseForm(id) {
       <input id="exercise-equipment" class="field" name="equipment" maxlength="90" value="${escapeHtml(demoLabel(ex?.equipment || ""))}" placeholder="${demoText("Ej. Technogym · Polea", "e.g. Technogym · Cable")}" />
       ${DEMO_MODE ? "" : `<label class="field-label" for="exercise-photo">${ex ? "Cambiar imagen (opcional)" : "Imagen del ejercicio (opcional)"}</label>
       <input id="exercise-photo" class="file-control" type="file" accept="image/*" />`}
-      ${canUsePanattaIllustration(ex) ? `<label class="routine-option"><input type="checkbox" name="panattaIllustration" /><img class="routine-thumbnail" src="${STARTER_ILLUSTRATIONS["panatta-super-declined-chest-press"]}" alt="Ilustración de Super Declined Chest Press en máquina Panatta" /><span class="routine-option-copy"><strong>Usar ilustración Panatta</strong><small>Reemplaza la imagen al guardar. Conserva tu historial y tus rutinas. Si eliges una foto, se usará esa foto.</small></span></label>` : ""}
+      ${canUsePanattaIllustration(ex) ? `<label class="routine-option"><input type="checkbox" name="panattaIllustration" /><img class="routine-thumbnail" src="${panattaIllustrationFor(ex)}" alt="Ilustración de ${escapeHtml(ex.name)} en máquina Panatta" /><span class="routine-option-copy"><strong>Usar ilustración Panatta</strong><small>Reemplaza la imagen al guardar. Conserva tu historial y tus rutinas. Si eliges una foto, se usará esa foto.</small></span></label>` : ""}
       <div class="sheet-buttons"><button type="button" class="secondary-button" data-close-overlay>${demoText("Cancelar", "Cancel")}</button><button type="submit" class="primary-button">${demoText("Guardar ejercicio", "Save exercise")}</button></div>
       ${ex ? `<button type="button" class="remove-from-day" style="margin-top:16px" data-action="${ex.archived ? "restore-exercise" : "archive-exercise"}" data-id="${escapeHtml(ex.id)}">${ex.archived ? demoText("Restaurar ejercicio", "Restore exercise") : demoText("Archivar ejercicio", "Archive exercise")}</button><button type="button" class="delete-session-button" style="margin-top:16px" data-action="delete-exercise-forever" data-id="${escapeHtml(ex.id)}">${demoText("Eliminar para siempre", "Delete forever")}</button>` : ""}
     </form>`);
@@ -1522,7 +1532,7 @@ document.addEventListener("submit", async event => {
     const existing = id ? getExercise(id) : null;
     const file = DEMO_MODE ? undefined : $("#exercise-photo").files?.[0];
     const usePanattaIllustration = !file && form.elements.panattaIllustration?.checked && canUsePanattaIllustration(existing);
-    const image = file ? await resizePhoto(file) : usePanattaIllustration ? STARTER_ILLUSTRATIONS["panatta-super-declined-chest-press"] : existing?.image;
+    const image = file ? await resizePhoto(file) : usePanattaIllustration ? panattaIllustrationFor(existing) : existing?.image;
     const exercise = existing ? { ...existing } : { id: uid(), tile: null };
     exercise.name = form.elements.name.value.trim();
     exercise.group = form.elements.group.value;
