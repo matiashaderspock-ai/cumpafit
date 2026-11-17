@@ -283,7 +283,7 @@ fs.mkdirSync(output, { recursive: true });
     const imageContext = await browser.newContext({ ...devices['iPhone 13'], locale: 'es-BO' });
     const images = await imageContext.newPage();
     await images.goto(base);
-    await images.locator('[data-tab="catalog"]').waitFor();
+    await images.locator('#view > *').first().waitFor();
     for (const [id, name, target] of [
       ['press-pecho-maquina', 'Vertical Chest Press', './assets/panatta-vertical-chest-press.png'],
       ['custom-inclined', 'Super Inclined Chest Press', './assets/panatta-super-inclined-chest-press.png'],
@@ -305,7 +305,7 @@ fs.mkdirSync(output, { recursive: true });
       await images.waitForFunction(({id,target})=>getExercise(id).image===target,{id,target});
       assert.equal(await images.evaluate(id=>getExercise(id+'-duplicate').image,id),'data:image/png;base64,old');
       await images.reload();
-      await images.locator('[data-tab="catalog"]').waitFor();
+      await images.locator('#view > *').first().waitFor();
       assert.equal(await images.evaluate(id=>getExercise(id).image,id),target);
     }
     await imageContext.close();
