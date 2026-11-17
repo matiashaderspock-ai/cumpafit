@@ -16,12 +16,12 @@ function harness(name = "Super Declined Chest Press") {
     elements:{name:{value:name},group:{value:'Pecho'},equipment:{value:'Panatta'},panattaIllustration:{checked:false}}};
   return {run,form,photo,button,save:()=>listeners.submit[0]({target:form,preventDefault(){}})};
 }
-test('Panatta choice is unchecked and limited to one exact custom match',()=>{
+test('Panatta explicit choice is unchecked and available on a selected duplicate',()=>{
   const {run}=harness();run('openExerciseForm("custom-panatta")');
   assert.match(run('formHtml'),/Usar ilustración Panatta/);
   assert.doesNotMatch(run('formHtml').match(/<input type="checkbox" name="panattaIllustration"[^>]*>/)[0],/checked/);
   run('state.exercises.push({...getExercise("custom-panatta"),id:"duplicate"})');
-  assert.equal(run('canUsePanattaIllustration(getExercise("custom-panatta"))'),false);
+  assert.equal(run('canUsePanattaIllustration(getExercise("custom-panatta"))'),true);
   run('state.exercises.pop();getExercise("custom-panatta").equipment="Other"');
   assert.equal(run('canUsePanattaIllustration(getExercise("custom-panatta"))'),false);
   assert.equal(run('canUsePanattaIllustration(getExercise("press-pecho-maquina"))'),false);
@@ -40,7 +40,7 @@ test('opt-in replacement keeps identity, all history and routine references',asy
 test('unchecked option preserves photo; uploaded and later photos take precedence',async()=>{
  const {run,form,save,photo}=harness();await save();assert.equal(run('getExercise("custom-panatta").image'),'data:image/jpeg;base64,old');
  form.elements.panattaIllustration.checked=true;await save();photo.files=[{}];await save();
- assert.equal(run('getExercise("custom-panatta").image'),'data:image/jpeg;base64,new');photo.files=[];await save();
+ assert.equal(run('getExercise("custom-panatta").image'),'data:image/jpeg;base64,new');photo.files=[];form.elements.panattaIllustration.checked=false;await save();
  assert.equal(run('getExercise("custom-panatta").image'),'data:image/jpeg;base64,new');
 });
 test('failed save rolls back image and marker and allows retry',async()=>{
@@ -69,16 +69,16 @@ for (const name of ['Super Declined Chest Press', 'Vertical Chest Press']) {
   photo.files=[{}];await save();assert.equal(run('getExercise("custom-panatta").image'),'data:image/jpeg;base64,new');
  });
 }
-test('Vertical replacement rejects duplicates, other equipment, muscle groups and starter IDs',()=>{
+test('Vertical explicit choice supports duplicate and starter-derived cards but rejects other equipment and muscle groups',()=>{
  const {run}=harness('Vertical Chest Press');
  run('state.exercises.push({...getExercise("custom-panatta"),id:"duplicate"})');
- assert.equal(run('canUsePanattaIllustration(getExercise("custom-panatta"))'),false);
+ assert.equal(run('canUsePanattaIllustration(getExercise("custom-panatta"))'),true);
  run('state.exercises.pop();getExercise("custom-panatta").equipment="Other"');
  assert.equal(run('canUsePanattaIllustration(getExercise("custom-panatta"))'),false);
  run('getExercise("custom-panatta").equipment="Panatta";getExercise("custom-panatta").group="Hombros"');
  assert.equal(run('canUsePanattaIllustration(getExercise("custom-panatta"))'),false);
  run('getExercise("custom-panatta").group="Pecho";getExercise("custom-panatta").id="press-pecho-maquina"');
- assert.equal(run('canUsePanattaIllustration(state.exercises.at(-1))'),false);
+ assert.equal(run('canUsePanattaIllustration(state.exercises.at(-1))'),true);
 });
 
 test('revised Super options are version-aware without overwriting custom photos automatically', async()=>{
@@ -121,4 +121,16 @@ test('new Alternate Arm Curl is a unique bilingual biceps starter; Super presses
  assert.equal(run('STARTER_EXERCISES.filter(ex=>/Super (Inclined|Declined) Chest Press/.test(ex.name)).length'),0);
  run('state.exercises=state.exercises.filter(ex=>ex.id!=="panatta-alternate-arm-curl-45")');
  assert.equal(run('mergeStarterExercises(state)'),1);assert.equal(run('mergeStarterExercises(state)'),0);
+});
+
+test('Vertical and Super Inclined choices survive formatting differences and stale markers',async()=>{
+ for(const name of ['Vertical Chest Press','Super Inclined Chest Press']) {
+  const {run,form,save}=harness(name);
+  run('getExercise("custom-panatta").name="  '+name.toUpperCase()+'  ";getExercise("custom-panatta").equipment=" panatta ";getExercise("custom-panatta").panattaIllustrationApplied=true');
+  assert.equal(run('canUsePanattaIllustration(getExercise("custom-panatta"))'),true);
+  form.elements.panattaIllustration.checked=true;await save();
+  assert.equal(run('canUsePanattaIllustration(getExercise("custom-panatta"))'),false);
+  run('getExercise("custom-panatta").image="data:image/png;base64,later"');
+  assert.equal(run('canUsePanattaIllustration(getExercise("custom-panatta"))'),true);
+ }
 });

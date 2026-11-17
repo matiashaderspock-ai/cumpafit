@@ -279,6 +279,36 @@ fs.mkdirSync(output, { recursive: true });
     await log.reload();
     await log.locator('.session-card').waitFor();
     assert.deepEqual(errors, []);
+    // Explicit illustration choice works for starter-derived and duplicate custom cards.
+    const imageContext = await browser.newContext({ ...devices['iPhone 13'], locale: 'es-BO' });
+    const images = await imageContext.newPage();
+    await images.goto(base);
+    await images.locator('[data-tab="catalog"]').waitFor();
+    for (const [id, name, target] of [
+      ['press-pecho-maquina', 'Vertical Chest Press', './assets/panatta-vertical-chest-press.png'],
+      ['custom-inclined', 'Super Inclined Chest Press', './assets/panatta-super-inclined-chest-press.png'],
+    ]) {
+      await images.evaluate(({id,name}) => {
+        const ex = {id,name,group:'Pecho',equipment:'Panatta',image:'data:image/png;base64,old',panattaIllustrationApplied:true};
+        state.exercises=state.exercises.filter(item=>item.id!==id);
+        state.exercises.push(ex,{...ex,id:id+'-duplicate'});
+        openExerciseForm(id);
+      }, {id,name});
+      const choice=images.locator('input[name="panattaIllustration"]');
+      await choice.waitFor();
+      assert.equal(await choice.isChecked(),false);
+      await images.getByRole('button',{name:'Cancelar',exact:true}).click();
+      assert.equal(await images.evaluate(id=>getExercise(id).image,id),'data:image/png;base64,old');
+      await images.evaluate(id=>openExerciseForm(id),id);
+      await choice.check();
+      await images.getByRole('button',{name:'Guardar ejercicio',exact:true}).click();
+      await images.waitForFunction(({id,target})=>getExercise(id).image===target,{id,target});
+      assert.equal(await images.evaluate(id=>getExercise(id+'-duplicate').image,id),'data:image/png;base64,old');
+      await images.reload();
+      await images.locator('[data-tab="catalog"]').waitFor();
+      assert.equal(await images.evaluate(id=>getExercise(id).image,id),target);
+    }
+    await imageContext.close();
     console.log('PASS: responsive navigation, native modal containment and focus recovery, routine persistence, auto-completion, drop sets, history, safe imports, rollback, reload and offline shell.');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

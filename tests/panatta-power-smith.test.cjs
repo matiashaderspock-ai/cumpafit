@@ -17,7 +17,7 @@ test('Power Smith flat and decline are distinct bilingual chest catalog entries 
   for (const [index, id] of ids.entries()) {
     const ex = run(`STARTER_EXERCISES.filter(ex => ex.id === '${id}')`);
     assert.equal(ex.length, 1);
-    assert.equal(ex[0].name, index ? 'Panatta Power Smith Dual System (Decline)' : 'Panatta Power Smith Dual System (Flat)');
+    assert.equal(ex[0].name, index ? 'Decline Chest Press' : 'Flat Chest Press');
     assert.match(ex[0].nameEs, index ? /declinado.*pecho bajo/ : /plano/);
     assert.equal(ex[0].group, 'Pecho');
     assert.equal(ex[0].equipment, 'Panatta Power Smith Dual System');
@@ -47,11 +47,11 @@ test('catalog upgrade adds variants once without overwriting custom exercises, h
 
 test('machine-title migration preserves IDs, user edits, and workout references', () => {
  const run=harness();
- run(`state=initialState();state.exercises.find(ex=>ex.id==='${ids[0]}').name='Flat Chest Press';state.exercises.find(ex=>ex.id==='${ids[1]}').name='My custom decline';
+ run(`state=initialState();state.exercises.find(ex=>ex.id==='${ids[0]}').name='Panatta Power Smith Dual System (Flat)';state.exercises.find(ex=>ex.id==='${ids[1]}').name='My custom decline';
  state.sessions={old:{selected:['${ids[0]}'],sets:{'${ids[0]}':[{kg:'30',reps:'8'}]}}};state.routines=[{id:'r',exerciseIds:['${ids[0]}']}];`);
  const before=run('JSON.stringify([state.sessions,state.routines])');
  run('migrateExerciseNames(state)');
- assert.equal(run(`state.exercises.find(ex=>ex.id==='${ids[0]}').name`),'Panatta Power Smith Dual System (Flat)');
+ assert.equal(run(`state.exercises.find(ex=>ex.id==='${ids[0]}').name`),'Flat Chest Press');
  assert.equal(run(`state.exercises.find(ex=>ex.id==='${ids[1]}').name`),'My custom decline');
  assert.equal(run('JSON.stringify([state.sessions,state.routines])'),before);
  assert.equal(run('migrateExerciseNames(state)'),0);
@@ -63,7 +63,7 @@ test('Upper machine has separate incline chest and shoulder entries and dedicate
  for (const [index,id] of upperIds.entries()) {
   const entries=run(`STARTER_EXERCISES.filter(ex=>ex.id==='${id}')`);
   assert.equal(entries.length,1);
-  assert.equal(entries[0].name,`Panatta Power Smith Dual System Upper (${index ? 'Shoulder Press' : 'Incline'})`);
+  assert.equal(entries[0].name,index ? 'Panatta Power Smith Dual System Upper (Shoulder Press)' : 'Incline Chest Press');
   assert.equal(entries[0].group,index ? 'Hombros' : 'Pecho');
   assert.equal(entries[0].equipment,'Panatta Power Smith Dual System Upper');
   assert.equal(entries[0].nameEs,index ? 'Press de hombros' : 'Press de pecho inclinado');
@@ -84,4 +84,18 @@ test('Upper catalog addition is idempotent and preserves existing variants, phot
  assert.equal(run(`JSON.stringify([state.exercises.filter(ex=>!${JSON.stringify(upperIds)}.includes(ex.id)),state.sessions,state.routines])`),before);
  run(`state.exercises=state.exercises.filter(ex=>ex.id!=='${upperIds[1]}');state.deletedExerciseIds=['${upperIds[1]}'];`);
  assert.equal(run('mergeStarterExercises(state)'),0);
+});
+
+test('simple chest titles migrate only published names while preserving machine subtitles and all user data',()=>{
+ const run=harness();
+ const names=[['panatta-power-smith-flat-chest-press','Panatta Power Smith Dual System (Flat)','Flat Chest Press'],['panatta-power-smith-decline-chest-press','Panatta Power Smith Dual System (Decline)','Decline Chest Press'],['panatta-power-smith-upper-incline','Panatta Power Smith Dual System Upper (Incline)','Incline Chest Press']];
+ for(const [id,oldName,newName] of names){
+  run(`state=initialState();getExercise('${id}').name=${JSON.stringify(oldName)};getExercise('${id}').image='data:image/png;base64,custom';`);
+  const before=run(`JSON.stringify({...getExercise('${id}'),name:undefined})`);
+  run('migrateExerciseNames(state)');
+  assert.equal(run(`getExercise('${id}').name`),newName);
+  assert.equal(run(`JSON.stringify({...getExercise('${id}'),name:undefined})`),before);
+  run(`getExercise('${id}').name='Custom press';migrateExerciseNames(state)`);
+  assert.equal(run(`getExercise('${id}').name`),'Custom press');
+ }
 });
