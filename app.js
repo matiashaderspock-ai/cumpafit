@@ -42,6 +42,8 @@ const STARTER_EXERCISES = [
   {"id":"ski-ergometer","name":"Ski Ergometer","group":"Cardio","equipment":"Technogym Skillup","nameEs":"Ergómetro de esquí","legacyName":"Ski Ergometer","legacyEquipment":"Ergómetro de esquí · Technogym Skillup"},
   {"id":"skillmill-walking-running","name":"Curved Treadmill Walking / Running","group":"Cardio","equipment":"Cinta curva autopropulsada · Technogym Skillmill","nameEs":"Caminata o carrera en cinta curva","legacyName":"Curved Treadmill Walking / Running","legacyEquipment":"Caminata o carrera en cinta curva autopropulsada · Technogym Skillmill"},
   {"id":"wide-machine-chest-press","name":"Wide Machine Chest Press","group":"Pecho","equipment":"Technogym Pure Strength Wide Chest Press","nameEs":"Press de pecho amplio en máquina","legacyName":"Wide Machine Chest Press","legacyEquipment":"Press de pecho amplio · Technogym Pure Strength Wide Chest Press"},
+  {"id":"panatta-power-smith-flat-chest-press","name":"Flat Chest Press","nameEs":"Press de pecho plano","group":"Pecho","equipment":"Panatta Power Smith Dual System"},
+  {"id":"panatta-power-smith-decline-chest-press","name":"Decline Chest Press","nameEs":"Press de pecho declinado (pecho bajo)","group":"Pecho","equipment":"Panatta Power Smith Dual System"},
   {"id":"smith-machine-squat","name":"Smith Machine Squat","group":"Piernas","equipment":"Technogym Multipower · Smith","nameEs":"Sentadilla en máquina Smith","legacyName":"Smith Machine Squat","legacyEquipment":"Sentadilla con barra guiada · Technogym Multipower · Smith"},
   {"id":"wall-ball","name":"Wall Ball Throw","group":"Otros","equipment":"Balón medicinal · Zona de wall ball","nameEs":"Lanzamiento de balón medicinal a la pared","legacyName":"Wall Ball Throw","legacyEquipment":"Lanzamiento de balón medicinal a la pared · Zona de wall ball"},
   {"id":"barbell-bench-press","name":"Barbell Bench Press","group":"Pecho","equipment":"Banco olímpico plano · Barra","nameEs":"Press de banca con barra","legacyName":"Barbell Bench Press","legacyEquipment":"Press de banca plano · Banco olímpico · Barra"},
@@ -86,6 +88,8 @@ const STARTER_EXERCISES = [
   {"id":"standing-ez-bar-machine-curl","name":"Standing EZ-Bar Machine Curl","group":"Bíceps","equipment":"Panatta · Máquina de pesas con selector","nameEs":"Curl de bíceps de pie en máquina con barra EZ"},
 ];
 const STARTER_ILLUSTRATIONS = {
+  "panatta-power-smith-flat-chest-press": "./assets/panatta-power-smith-flat-chest-press.png",
+  "panatta-power-smith-decline-chest-press": "./assets/panatta-power-smith-decline-chest-press.png",
   "panatta-super-declined-chest-press": "./assets/panatta-super-declined-chest-press.jpg",
   "standing-ez-bar-machine-curl": "./assets/standing-ez-bar-machine-curl.png",
   "curl-inclinado": "./assets/curl-inclinado-hd.jpg",
