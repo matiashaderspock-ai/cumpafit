@@ -56,3 +56,32 @@ test('machine-title migration preserves IDs, user edits, and workout references'
  assert.equal(run('JSON.stringify([state.sessions,state.routines])'),before);
  assert.equal(run('migrateExerciseNames(state)'),0);
 });
+
+const upperIds = ['panatta-power-smith-upper-incline', 'panatta-power-smith-upper-shoulder-press'];
+test('Upper machine has separate incline chest and shoulder entries and dedicated offline illustrations', () => {
+ const run=harness();
+ for (const [index,id] of upperIds.entries()) {
+  const entries=run(`STARTER_EXERCISES.filter(ex=>ex.id==='${id}')`);
+  assert.equal(entries.length,1);
+  assert.equal(entries[0].name,`Panatta Power Smith Dual System Upper (${index ? 'Shoulder Press' : 'Incline'})`);
+  assert.equal(entries[0].group,index ? 'Hombros' : 'Pecho');
+  assert.equal(entries[0].equipment,'Panatta Power Smith Dual System Upper');
+  assert.equal(entries[0].nameEs,index ? 'Press de hombros' : 'Press de pecho inclinado');
+  const image=run(`STARTER_ILLUSTRATIONS['${id}']`);
+  assert.equal(image,`./assets/${id}.png`);
+  assert.ok(fs.readFileSync(path.join(root,image)).subarray(1,4).equals(Buffer.from('PNG')));
+  assert.ok(fs.readFileSync(path.join(root,'sw.js'),'utf8').includes(JSON.stringify(image)));
+ }
+});
+test('Upper catalog addition is idempotent and preserves existing variants, photos, history and deletions', () => {
+ const run=harness();
+ run(`state=initialState();state.exercises=state.exercises.filter(ex=>!${JSON.stringify(upperIds)}.includes(ex.id));
+  state.exercises.find(ex=>ex.id==='${ids[0]}').image='data:image/png;base64,user';
+  state.sessions={old:{selected:['${ids[0]}'],sets:{'${ids[0]}':[{kg:'30',reps:'8'}]}}};state.routines=[{id:'r',exerciseIds:['${ids[0]}']}];`);
+ const before=run('JSON.stringify([state.exercises,state.sessions,state.routines])');
+ assert.equal(run('mergeStarterExercises(state)'),2);
+ assert.equal(run('mergeStarterExercises(state)'),0);
+ assert.equal(run(`JSON.stringify([state.exercises.filter(ex=>!${JSON.stringify(upperIds)}.includes(ex.id)),state.sessions,state.routines])`),before);
+ run(`state.exercises=state.exercises.filter(ex=>ex.id!=='${upperIds[1]}');state.deletedExerciseIds=['${upperIds[1]}'];`);
+ assert.equal(run('mergeStarterExercises(state)'),0);
+});
