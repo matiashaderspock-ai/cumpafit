@@ -4,7 +4,9 @@ const crypto = require('node:crypto');
 const root = path.join(__dirname, '..');
 const app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
 const illustrations = JSON.parse(app.match(/const STARTER_ILLUSTRATIONS = (\{[\s\S]*?\n\});/)[1]);
-const files = [...new Set(['./assets/ejercicios-referencia.png', ...Object.values(illustrations)])].sort();
+// Existing custom cards/backups can retain this published path after conservative migrations.
+const compatibilityImages = ['./assets/panatta-super-declined-chest-press.jpg'];
+const files = [...new Set(['./assets/ejercicios-referencia.png', ...compatibilityImages, ...Object.values(illustrations)])].sort();
 const manifest = Object.fromEntries(files.map(file => [file,
   crypto.createHash('sha256').update(fs.readFileSync(path.join(root, file))).digest('hex').slice(0, 16),
 ]));

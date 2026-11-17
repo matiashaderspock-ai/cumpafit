@@ -29,7 +29,7 @@ test('Panatta choice is unchecked and limited to one exact custom match',()=>{
 test('opt-in replacement keeps identity, all history and routine references',async()=>{
  const {run,form,save}=harness(); const history=run('JSON.stringify([state.sessions,state.routines])'); const count=run('state.exercises.length');
  form.elements.panattaIllustration.checked=true; await save();
- assert.equal(run('getExercise("custom-panatta").image'),'./assets/panatta-super-declined-chest-press.jpg');
+ assert.equal(run('getExercise("custom-panatta").image'),'./assets/panatta-super-declined-chest-press-v2.png');
  assert.equal(run('getExercise("custom-panatta").favorite'),true);
  assert.equal(run('state.exercises.length'),count);
  assert.equal(run('JSON.stringify([state.sessions,state.routines])'),history);
@@ -48,13 +48,13 @@ test('failed save rolls back image and marker and allows retry',async()=>{
  run('persistNow=async()=>{throw new Error("quota")};');await save();
  assert.equal(run('getExercise("custom-panatta").image'),'data:image/jpeg;base64,old');
  assert.equal(run('getExercise("custom-panatta").panattaIllustrationApplied'),undefined);assert.equal(button.disabled,false);
- run('persistNow=async()=>{}');await save();assert.equal(run('getExercise("custom-panatta").panattaIllustrationApplied'),true);
+ run('persistNow=async()=>{}');await save();assert.equal(run('getExercise("custom-panatta").panattaIllustrationApplied'),'./assets/panatta-super-declined-chest-press-v2.png');
 });
 
 for (const name of ['Super Declined Chest Press', 'Vertical Chest Press']) {
  test(`${name}: explicit replacement keeps identity/history and does not automatically overwrite photos`,async()=>{
   const {run,form,save,photo}=harness(name);
-  const expected=name==='Vertical Chest Press'?'./assets/panatta-vertical-chest-press.png':'./assets/panatta-super-declined-chest-press.jpg';
+  const expected=name==='Vertical Chest Press'?'./assets/panatta-vertical-chest-press.png':'./assets/panatta-super-declined-chest-press-v2.png';
   const before=run('JSON.stringify([state.sessions,state.routines])');
   run('openExerciseForm("custom-panatta")');
   assert.ok(run('formHtml').includes(expected));
@@ -79,4 +79,46 @@ test('Vertical replacement rejects duplicates, other equipment, muscle groups an
  assert.equal(run('canUsePanattaIllustration(getExercise("custom-panatta"))'),false);
  run('getExercise("custom-panatta").group="Pecho";getExercise("custom-panatta").id="press-pecho-maquina"');
  assert.equal(run('canUsePanattaIllustration(state.exercises.at(-1))'),false);
+});
+
+test('revised Super options are version-aware without overwriting custom photos automatically', async()=>{
+ for (const [name,image] of [['Super Declined Chest Press','./assets/panatta-super-declined-chest-press-v2.png'],['Super Inclined Chest Press','./assets/panatta-super-inclined-chest-press.png']]) {
+  const {run,form,save}=harness(name);
+  run('getExercise("custom-panatta").panattaIllustrationApplied=true');
+  assert.equal(run('canUsePanattaIllustration(getExercise("custom-panatta"))'),true);
+  const before=run('JSON.stringify([state.sessions,state.routines])');
+  assert.equal(run('migrateKnownPanattaIllustrations(state)'),0);
+  assert.equal(run('getExercise("custom-panatta").image'),'data:image/jpeg;base64,old');
+  form.elements.panattaIllustration.checked=true;await save();
+  assert.equal(run('getExercise("custom-panatta").image'),image);
+  assert.equal(run('getExercise("custom-panatta").panattaIllustrationApplied'),image);
+  assert.equal(run('canUsePanattaIllustration(getExercise("custom-panatta"))'),false);
+  assert.equal(run('getExercise("custom-panatta").name'),name);
+  assert.equal(run('JSON.stringify([state.sessions,state.routines])'),before);
+ }
+});
+test('only a unique known old Super Declined asset migrates, preserving identity and history',()=>{
+ const {run}=harness();
+ run('getExercise("custom-panatta").image="./assets/panatta-super-declined-chest-press.jpg";getExercise("custom-panatta").panattaIllustrationApplied=true');
+ const before=run('JSON.stringify([state.sessions,state.routines])');
+ run('state.exercises.push({...getExercise("custom-panatta"),id:"duplicate"})');
+ assert.equal(run('migrateKnownPanattaIllustrations(state)'),0);
+ run('state.exercises.pop();getExercise("custom-panatta").equipment="Other"');
+ assert.equal(run('migrateKnownPanattaIllustrations(state)'),0);
+ run('getExercise("custom-panatta").equipment="Panatta"');
+ assert.equal(run('migrateKnownPanattaIllustrations(state)'),1);
+ assert.equal(run('migrateKnownPanattaIllustrations(state)'),0);
+ assert.equal(run('getExercise("custom-panatta").image'),'./assets/panatta-super-declined-chest-press-v2.png');
+ assert.equal(run('getExercise("custom-panatta").name'),'Super Declined Chest Press');
+ assert.equal(run('JSON.stringify([state.sessions,state.routines])'),before);
+});
+test('new Alternate Arm Curl is a unique bilingual biceps starter; Super presses remain custom-only',()=>{
+ const {run}=harness();
+ const entries=run('STARTER_EXERCISES.filter(ex=>ex.id==="panatta-alternate-arm-curl-45")');
+ assert.equal(entries.length,1);assert.equal(entries[0].name,'Panatta Alternate Arm Curl -45');
+ assert.equal(entries[0].group,'Bíceps');assert.match(entries[0].nameEs,/Curl alterno/);
+ assert.equal(run('STARTER_ILLUSTRATIONS["panatta-alternate-arm-curl-45"]'),'./assets/panatta-alternate-arm-curl-45.png');
+ assert.equal(run('STARTER_EXERCISES.filter(ex=>/Super (Inclined|Declined) Chest Press/.test(ex.name)).length'),0);
+ run('state.exercises=state.exercises.filter(ex=>ex.id!=="panatta-alternate-arm-curl-45")');
+ assert.equal(run('mergeStarterExercises(state)'),1);assert.equal(run('mergeStarterExercises(state)'),0);
 });
