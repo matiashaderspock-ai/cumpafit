@@ -308,6 +308,25 @@ fs.mkdirSync(output, { recursive: true });
       await images.locator('#view > *').first().waitFor();
       assert.equal(await images.evaluate(id=>getExercise(id).image,id),target);
     }
+    await images.locator('[data-tab="catalog"]').click();
+    await images.getByRole('button', { name: '+ Nuevo', exact: true }).click();
+    await images.locator('#exercise-name').fill('Declined Barbell Bench Press');
+    await images.locator('#exercise-group').selectOption('Pecho');
+    await images.locator('#exercise-equipment').fill('Banco olímpico inclinado • Barra');
+    await images.getByRole('button', { name: 'Guardar ejercicio', exact: true }).click();
+    await images.getByRole('heading', { name: 'Declined Barbell Bench Press', exact: true }).waitFor();
+    await images.reload();
+    await images.locator('#view > *').first().waitFor();
+    await images.locator('[data-tab="catalog"]').click();
+    await images.locator('#catalog-search').fill('Declined Barbell Bench Press');
+    const declineImage = images.getByRole('button', { name: 'Ver ilustración completa de Declined Barbell Bench Press' });
+    assert.match(await declineImage.getByRole('img').getAttribute('src'), /\/declined-barbell-bench-press\.png$/);
+    await declineImage.click();
+    const declinePreview = images.getByRole('img', { name: 'Ilustración completa de Declined Barbell Bench Press' });
+    await declinePreview.waitFor();
+    await images.waitForFunction(() => document.querySelector('img.preview-illustration')?.naturalWidth > 0);
+    assert.match(await declinePreview.getAttribute('src'), /\/declined-barbell-bench-press\.png$/);
+    assert.equal(await images.evaluate(() => state.exercises.find(ex => ex.name === 'Declined Barbell Bench Press').image || ''), '');
     await imageContext.close();
     console.log('PASS: responsive navigation, native modal containment and focus recovery, routine persistence, auto-completion, drop sets, history, safe imports, rollback, reload and offline shell.');
   } finally { await browser.close(); }

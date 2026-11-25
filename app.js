@@ -147,6 +147,7 @@ const STARTER_ILLUSTRATIONS = {
   "wall-ball": "./assets/wall-ball.jpg",
   "barbell-bench-press": "./assets/barbell-bench-press-v2.jpg",
   "incline-barbell-bench-press": "./assets/incline-barbell-bench-press-v2.jpg",
+  "declined-barbell-bench-press": "./assets/declined-barbell-bench-press.png",
   "back-extension-45": "./assets/back-extension-45.jpg",
   "machine-hip-thrust": "./assets/machine-hip-thrust.jpg",
   "pull-up": "./assets/pull-up.jpg",
@@ -591,14 +592,24 @@ function isExerciseComplete(session, id) {
   const sets = session.sets[id] || [];
   return sets.length > 0 && sets.every(set => set.done);
 }
+function exerciseIllustration(ex) {
+  const existing = ex.image || STARTER_ILLUSTRATIONS[ex.id];
+  if (existing || Number.isInteger(ex.tile)) return existing;
+  const equipment = normalizeSearch(String(ex.equipment ?? "").replace(/[·•]/g, "|")).trim().replace(/\s+/g, " ");
+  if (normalizeSearch(ex.name).trim() === "declined barbell bench press" &&
+      ex.group === "Pecho" &&
+      /^banco olimpico inclinado *\| *barra$/.test(equipment)) {
+    return STARTER_ILLUSTRATIONS["declined-barbell-bench-press"];
+  }
+}
 function imageMarkup(ex, className = "exercise-image") {
-  const source = ex.image || STARTER_ILLUSTRATIONS[ex.id];
+  const source = exerciseIllustration(ex);
   if (source) return `<img class="${className}${ex.image ? "" : " starter-illustration"}" src="${escapeHtml(source)}" alt="${demoText("Ilustración de", "Illustration of")} ${escapeHtml(ex.name)}" />`;
   if (!Number.isInteger(ex.tile)) return `<div class="${className} image-pending" role="img" aria-label="${demoText("Imagen pendiente de", "Image pending for")} ${escapeHtml(ex.name)}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8" cy="9" r="1.5"/><path d="m4 17 5-5 4 4 3-3 4 4"/></svg><span>${demoText("Imagen pendiente", "Image pending")}</span></div>`;
   return `<div class="${className} tile-image tile-${ex.tile}" role="img" aria-label="${demoText("Ilustración de", "Illustration of")} ${escapeHtml(ex.name)}"></div>`;
 }
 function catalogImageButton(ex) {
-  if (!ex.image && !STARTER_ILLUSTRATIONS[ex.id] && !Number.isInteger(ex.tile)) return imageMarkup(ex, "catalog-image");
+  if (!exerciseIllustration(ex) && !Number.isInteger(ex.tile)) return imageMarkup(ex, "catalog-image");
   return `<button type="button" class="catalog-image-button" data-action="view-image" data-id="${escapeHtml(ex.id)}" aria-label="${demoText("Ver ilustración completa de", "View full illustration of")} ${escapeHtml(ex.name)}">${imageMarkup(ex, "catalog-image")}<span class="zoom-cue" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/></svg></span></button>`;
 }
 function lastPerformance(id, beforeDate = activeDate) {
@@ -1136,7 +1147,7 @@ function openImagePreview(id) {
   const ex = getExercise(id);
   if (!ex) return;
   const tileViews = ["6 47 339 299", "345 47 338 299", "6 346 339 311", "345 346 338 311", "6 657 339 312", "345 657 338 312"];
-  const source = ex.image || STARTER_ILLUSTRATIONS[ex.id];
+  const source = exerciseIllustration(ex);
   if (!source && !Number.isInteger(ex.tile)) {
     openOverlay(`<h2 id="sheet-title" lang="en">${escapeHtml(ex.name)}</h2><p>${demoText("La imagen de este ejercicio está pendiente. Puedes añadir una foto desde Editar.", "The image for this exercise is pending.")}</p><button type="button" class="primary-button" data-close-overlay>${demoText("Cerrar", "Close")}</button>`);
     return;
