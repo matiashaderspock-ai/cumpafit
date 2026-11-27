@@ -24,6 +24,8 @@ const STARTER_EXERCISES = [
   {"id":"reverse-pec-deck","name":"Reverse Pec Deck","group":"Hombros","equipment":"Máquina pec deck · Deltoides posteriores","nameEs":"Aperturas inversas en máquina pec deck","legacyName":"Reverse Pec Deck","legacyEquipment":"Aperturas inversas en máquina · Deltoides posteriores"},
   {"id":"incline-chest-supported-dumbbell-row","name":"Incline Chest-Supported Dumbbell Row","nameEs":"Remo con mancuernas y pecho apoyado en banco inclinado","group":"Espalda","equipment":"Banco inclinado · Mancuernas"},
   {"id":"single-arm-seated-cable-row","name":"Single-Arm Seated Cable Row","nameEs":"Remo unilateral sentado en polea baja","group":"Espalda","equipment":"Polea baja · Asa individual · Banco"},
+  {"id":"panatta-dips-press","name":"Dips Press","nameEs":"Fondos en máquina","group":"Tríceps","equipment":"Panatta · Dips Press"},
+  {"id":"panatta-rowing-machine-circular","name":"Rowing Machine Circular","nameEs":"Remo circular en máquina","group":"Espalda","equipment":"Panatta · Rowing Machine Circular"},
   {"id":"remo-maquina-pecho-apoyado","name":"Chest-Supported Machine Row","group":"Espalda","equipment":"Máquina de remo · Apoyo de pecho","nameEs":"Remo en máquina con apoyo de pecho","legacyName":"Chest-Supported Machine Row","legacyEquipment":"Remo sentado en máquina · Apoyo de pecho"},
   {"id":"straight-arm-pulldown","name":"Straight-Arm Cable Pulldown","group":"Espalda","equipment":"Polea alta · Barra recta","nameEs":"Jalón en polea con brazos rectos","legacyName":"Straight-Arm Cable Pulldown","legacyEquipment":"Pullover de pie en polea alta · Barra recta"},
   {"id":"standing-dumbbell-curl","name":"Standing Dumbbell Curl","group":"Bíceps","equipment":"Mancuernas","nameEs":"Curl de bíceps de pie con mancuernas","legacyName":"Standing Dumbbell Curl","legacyEquipment":"Curl de bíceps de pie · Mancuernas"},
@@ -123,8 +125,9 @@ const STARTER_ILLUSTRATIONS = {
   "elevacion-rodillas": "./assets/elevacion-rodillas.jpg",
   "pec-deck": "./assets/pec-deck.jpg",
   "reverse-pec-deck": "./assets/reverse-pec-deck.jpg",
-  "incline-chest-supported-dumbbell-row": "./assets/remo-mancuernas-pecho-apoyado.svg",
-  "single-arm-seated-cable-row": "./assets/remo-unilateral-polea.svg",
+  "incline-chest-supported-dumbbell-row": "./assets/incline-chest-supported-dumbbell-row.jpg",
+  "single-arm-seated-cable-row": "./assets/single-arm-seated-cable-row.jpg",
+  "panatta-rowing-machine-circular": "./assets/panatta-rowing-machine-circular.jpg",
   "remo-maquina-pecho-apoyado": "./assets/remo-maquina-pecho-apoyado.jpg",
   "straight-arm-pulldown": "./assets/straight-arm-pulldown.jpg",
   "standing-dumbbell-curl": "./assets/standing-dumbbell-curl.jpg",
@@ -171,6 +174,9 @@ const STARTER_ILLUSTRATIONS = {
   "lying-dumbbell-triceps-extension": "./assets/lying-dumbbell-triceps-extension.jpg",
   "overhead-dumbbell-triceps-extension": "./assets/overhead-dumbbell-triceps-extension.jpg",
   "straight-bar-triceps-pushdown": "./assets/straight-bar-triceps-pushdown.jpg",
+  "v-bar-triceps-pushdown": "./assets/v-bar-triceps-pushdown.jpg",
+  "panatta-dips-press": "./assets/panatta-dips-press.jpg",
+  "panatta-triceps-machine": "./assets/panatta-triceps-machine.jpg",
   "incline-dumbbell-fly": "./assets/incline-dumbbell-fly.jpg",
   "chin-up": "./assets/chin-up.jpg",
   "inverted-row": "./assets/inverted-row.jpg",
@@ -338,7 +344,8 @@ function createDemoState() {
 function mergeStarterExercises(snapshot) {
   const existingIds = new Set(snapshot.exercises.map(ex => ex.id));
   const deletedIds = new Set(snapshot.deletedExerciseIds || []);
-  const missing = STARTER_EXERCISES.filter(ex => !existingIds.has(ex.id) && !deletedIds.has(ex.id));
+  const personalPanattaIds = new Set([...snapshot.exercises, ...(snapshot.exerciseHistory || [])].map(panattaRowOrDipDefault).filter(Boolean));
+  const missing = STARTER_EXERCISES.filter(ex => !existingIds.has(ex.id) && !deletedIds.has(ex.id) && !personalPanattaIds.has(ex.id));
   snapshot.exercises.push(...structuredClone(missing));
   return missing.length;
 }
@@ -523,7 +530,8 @@ async function deleteExerciseForever(id, button) {
   const used = Object.values(state.sessions).some(session => session.selected.includes(id) || Object.hasOwn(session.sets, id) || Object.hasOwn(session.completed, id));
   state.exercises = state.exercises.filter(item => item.id !== id);
   state.routines = state.routines.map(routine => ({ ...routine, exerciseIds: routine.exerciseIds.filter(item => item !== id) }));
-  state.deletedExerciseIds = [...new Set([...(state.deletedExerciseIds || []), id])];
+  const defaultId = panattaRowOrDipDefault(ex);
+  state.deletedExerciseIds = [...new Set([...(state.deletedExerciseIds || []), id, ...(defaultId ? [defaultId] : [])])];
   state.exerciseHistory = (state.exerciseHistory || []).filter(item => item.id !== id);
   if (used) state.exerciseHistory.push({ id, name: ex.name, group: ex.group, equipment: ex.equipment || "", ...(ex.nameEs !== undefined ? { nameEs: ex.nameEs } : {}), ...(ex.legacyName !== undefined ? { legacyName: ex.legacyName } : {}), weightUnit: exerciseWeightUnit(ex) });
   try { await persistNow(); } catch {
@@ -592,13 +600,35 @@ function isExerciseComplete(session, id) {
   const sets = session.sets[id] || [];
   return sets.length > 0 && sets.every(set => set.done);
 }
+// Match only the named machine variants, not a generic machine row or a bodyweight dip.
+function panattaRowOrDipDefault(ex) {
+  const name = normalizeSearch(ex.name).trim().replace(/\s+/g, " ");
+  const equipment = normalizeSearch(ex.equipment).trim();
+  const branded = /\bpanatta\b/.test(equipment) || name.startsWith("panatta ");
+  const unspecified = !equipment || equipment === "equipo no indicado" || equipment === "equipment not specified";
+  if ((branded || unspecified) && (name === "rowing machine circular" || name === "panatta rowing machine circular") &&
+      ex.group === "Espalda") return "panatta-rowing-machine-circular";
+  if ((branded || unspecified || /\b1fe038\b/.test(equipment)) &&
+      (name === "dips press" || name === "dip press" || name === "panatta dips press" || name === "panatta dip press") &&
+      (ex.group === "Tríceps" || ex.group === "Pecho")) return "panatta-dips-press";
+}
 function exerciseIllustration(ex) {
   const existing = ex.image || STARTER_ILLUSTRATIONS[ex.id];
   if (existing || Number.isInteger(ex.tile)) return existing;
+  const machineDefault = panattaRowOrDipDefault(ex);
+  if (machineDefault) return STARTER_ILLUSTRATIONS[machineDefault];
+  const name = normalizeSearch(ex.name).trim();
+  if (ex.group === "Tríceps" && /^v(?:\s*[-‐‑–—]\s*|\s+)bar\s+triceps\s+pushdown$/.test(name)) {
+    return STARTER_ILLUSTRATIONS["v-bar-triceps-pushdown"];
+  }
   const equipment = normalizeSearch(String(ex.equipment ?? "").replace(/[·•]/g, "|")).trim().replace(/\s+/g, " ");
-  if (normalizeSearch(ex.name).trim() === "declined barbell bench press" &&
+  if (ex.group === "Tríceps" && name.replace(/\s+/g, " ") === "triceps machine" &&
+      /^(?:panatta|panatta (?:triceps machine|1fe053)|panatta *\| *(?:triceps machine|1fe053))$/.test(equipment)) {
+    return STARTER_ILLUSTRATIONS["panatta-triceps-machine"];
+  }
+  if (name === "declined barbell bench press" &&
       ex.group === "Pecho" &&
-      /^banco olimpico inclinado *\| *barra$/.test(equipment)) {
+      /^banco olimpico inclinado *\| *barra(?: *\(\d+ huecos? afuera\))?$/.test(equipment)) {
     return STARTER_ILLUSTRATIONS["declined-barbell-bench-press"];
   }
 }

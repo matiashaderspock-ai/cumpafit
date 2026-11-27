@@ -93,7 +93,7 @@ test('offline manifest covers the catalog and contains actual image content revi
   const manifest = JSON.parse(sw.match(/const IMAGE_FILES = (\{[\s\S]*?\n\});/)[1]);
   const app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
   const illustrations = JSON.parse(app.match(/const STARTER_ILLUSTRATIONS = (\{[\s\S]*?\n\});/)[1]);
-  assert.deepEqual(Object.keys(manifest).sort(), [...new Set(['./assets/ejercicios-referencia.png', './assets/panatta-super-declined-chest-press.jpg', ...Object.values(illustrations)])].sort());
+  assert.deepEqual(Object.keys(manifest).sort(), [...new Set(['./assets/ejercicios-referencia.png', './assets/panatta-super-declined-chest-press.jpg', './assets/remo-mancuernas-pecho-apoyado.svg', './assets/remo-unilateral-polea.svg', ...Object.values(illustrations)])].sort());
   for (const [file, hash] of Object.entries(manifest)) assert.equal(hash, revision(fs.readFileSync(path.join(root, file))));
 });
 

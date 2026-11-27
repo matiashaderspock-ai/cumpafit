@@ -312,7 +312,7 @@ fs.mkdirSync(output, { recursive: true });
     await images.getByRole('button', { name: '+ Nuevo', exact: true }).click();
     await images.locator('#exercise-name').fill('Declined Barbell Bench Press');
     await images.locator('#exercise-group').selectOption('Pecho');
-    await images.locator('#exercise-equipment').fill('Banco olímpico inclinado • Barra');
+    await images.locator('#exercise-equipment').fill('Banco olímpico inclinado · Barra (5 huecos afuera)');
     await images.getByRole('button', { name: 'Guardar ejercicio', exact: true }).click();
     await images.getByRole('heading', { name: 'Declined Barbell Bench Press', exact: true }).waitFor();
     await images.reload();
@@ -327,6 +327,47 @@ fs.mkdirSync(output, { recursive: true });
     await images.waitForFunction(() => document.querySelector('img.preview-illustration')?.naturalWidth > 0);
     assert.match(await declinePreview.getAttribute('src'), /\/declined-barbell-bench-press\.png$/);
     assert.equal(await images.evaluate(() => state.exercises.find(ex => ex.name === 'Declined Barbell Bench Press').image || ''), '');
+    for (const [id, name, equipment] of [
+      ['fixture-vbar', 'V - Bar Triceps Pushdown', 'Polea'],
+      ['fixture-panatta-triceps', 'Triceps Machine', 'Panatta'],
+    ]) {
+      await images.evaluate(({id, name, equipment}) => {
+        state.exercises.push({id, name, equipment, group: 'Tríceps'});
+        const session = ensureSession();
+        session.selected.push(id);
+        session.sets[id] = [{id: id + '-set', kg: '30', reps: '10', done: true}];
+      }, {id, name, equipment});
+    }
+    await images.evaluate(() => persistNow());
+    const beforeIllustrations = await images.evaluate(() => JSON.stringify(state.sessions));
+    await images.reload();
+    await images.locator('.summary-card').waitFor();
+    for (const [id, filename] of [
+      ['fixture-vbar', 'v-bar-triceps-pushdown.jpg'],
+      ['fixture-panatta-triceps', 'panatta-triceps-machine.jpg'],
+    ]) {
+      const thumb = images.locator(".session-main").filter({has: images.locator(`button[data-id="${id}"]`)}).locator("img.exercise-image");
+      await thumb.waitFor();
+      assert.ok((await thumb.getAttribute('src')).endsWith(filename));
+      await thumb.evaluate(img => img.decode());
+    }
+    await images.locator('[data-tab="catalog"]').click();
+    for (const [name, filename] of [
+      ['Incline Chest-Supported Dumbbell Row', 'incline-chest-supported-dumbbell-row.jpg'],
+      ['Single-Arm Seated Cable Row', 'single-arm-seated-cable-row.jpg'],
+      ['V - Bar Triceps Pushdown', 'v-bar-triceps-pushdown.jpg'],
+      ['Rowing Machine Circular', 'panatta-rowing-machine-circular.jpg'],
+      ['Dips Press', 'panatta-dips-press.jpg'],
+      ['Triceps Machine', 'panatta-triceps-machine.jpg'],
+    ]) {
+      await images.locator('#catalog-search').fill(name);
+      const button = images.getByRole('button', {name: 'Ver ilustración completa de ' + name, exact: true});
+      assert.ok((await button.getByRole('img').getAttribute('src')).endsWith(filename));
+      await button.click();
+      await images.locator('img.preview-illustration').evaluate(img => img.decode());
+      await images.getByRole('button', {name: 'Cerrar ilustración', exact: true}).click();
+    }
+    assert.equal(await images.evaluate(() => JSON.stringify(state.sessions)), beforeIllustrations);
     await imageContext.close();
     console.log('PASS: responsive navigation, native modal containment and focus recovery, routine persistence, auto-completion, drop sets, history, safe imports, rollback, reload and offline shell.');
   } finally { await browser.close(); }

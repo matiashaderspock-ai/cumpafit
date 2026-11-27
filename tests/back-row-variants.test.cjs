@@ -13,13 +13,19 @@ const variants = [
     id: "incline-chest-supported-dumbbell-row",
     english: "Incline Chest-Supported Dumbbell Row",
     spanish: "Remo con mancuernas y pecho apoyado en banco inclinado",
-    image: "remo-mancuernas-pecho-apoyado.svg",
+    image: "incline-chest-supported-dumbbell-row.jpg",
   },
   {
     id: "single-arm-seated-cable-row",
     english: "Single-Arm Seated Cable Row",
     spanish: "Remo unilateral sentado en polea baja",
-    image: "remo-unilateral-polea.svg",
+    image: "single-arm-seated-cable-row.jpg",
+  },
+  {
+    id: "panatta-rowing-machine-circular",
+    english: "Rowing Machine Circular",
+    spanish: "Remo circular en máquina",
+    image: "panatta-rowing-machine-circular.jpg",
   },
 ];
 
@@ -33,17 +39,22 @@ test("new back exercises have unique stable catalog IDs, names and dedicated ill
   }
 });
 
-test("illustrations are included in the offline cache and are valid-looking SVG files", () => {
+test("illustrations are included in the offline cache and are dedicated JPEG files", () => {
   const version = sw.match(/cumpafit-v(\d+)/)[1];
   assert.ok(html.includes(`app.js?v=${version}`));
   for (const { image } of variants) {
     assert.ok(sw.includes(`"./assets/${image}"`), image);
-    const svg = readFileSync(join(root, "assets", image), "utf8");
-    assert.match(svg, /^<svg\s/);
-    assert.match(svg, /<title\s/);
-    assert.match(svg, /<desc\s/);
-    assert.match(svg, /Inicio/);
-    assert.match(svg, /Final/);
-    assert.match(svg, /<\/svg>\s*$/);
+    const jpeg = readFileSync(join(root, "assets", image));
+    assert.deepEqual([...jpeg.subarray(0, 3)], [0xff, 0xd8, 0xff], image);
+    assert.deepEqual([...jpeg.subarray(-2)], [0xff, 0xd9], image);
   }
+});
+
+test("Panatta Circular is a strength exercise separate from other rows", () => {
+  const entry = app.split("\n").find(line => line.includes('"id":"panatta-rowing-machine-circular"'));
+  const row = JSON.parse(entry.trim().slice(0, -1));
+  assert.equal(row.group, "Espalda");
+  assert.match(row.equipment, /Panatta/);
+  assert.ok(app.includes('"id":"remo-maquina-pecho-apoyado"'));
+  assert.ok(app.includes('"id":"remo-ergometro"'));
 });
